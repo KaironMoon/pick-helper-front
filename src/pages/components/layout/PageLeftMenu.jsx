@@ -9,6 +9,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import ListIcon from "@mui/icons-material/List";
 import HomeIcon from "@mui/icons-material/Home";
+import CasinoIcon from "@mui/icons-material/Casino";
 
 import { useNavigate } from "react-router-dom";
 
@@ -51,6 +52,14 @@ function PageLeftMenu() {
               <HomeIcon />
             </ListItemIcon>
             <ListItemText primary="Home" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => handleNavClick("/picks")}>
+            <ListItemIcon>
+              <CasinoIcon />
+            </ListItemIcon>
+            <ListItemText primary="pick입력" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>

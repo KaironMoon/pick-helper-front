@@ -4,6 +4,7 @@ import Home from "../pages/home";
 import Info from "../pages/info";
 import NotFound from "../pages/error/NotFound";
 import PageLayout from "../pages/PageLayout";
+import Picks from "../pages/picks";
 
 const ProductLayout = lazy(() => import("../pages/product/ProductLayout"));
 const ProductList = lazy(() => import("../pages/product"));
@@ -42,6 +43,10 @@ const router = createBrowserRouter([
       {
         path: "/info",
         element: <Info />,
+      },
+      {
+        path: "/picks",
+        element: <Picks />,
       },
       ...ProductRouter,
     ],
