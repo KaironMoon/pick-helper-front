@@ -8,7 +8,7 @@
     "build": "vite build --mode production",
     "lint": "eslint .",
     "preview": "vite preview",
-    "copy": "rm -rf ../backend/frontend && cp -r ./dist ../backend/frontend"
+    "copy": "rm -rf ../pick-helper/frontend && cp -r ./dist ../pick-helper/frontend"
   },
   "dependencies": {
     "@emotion/react": "^11.13.5",

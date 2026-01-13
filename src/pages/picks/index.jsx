@@ -416,6 +416,13 @@ export default function PicksPage() {
           {filledPicks.length > 0 ? (matchedSeq ? matchedSeq : (hasGapInMiddle() ? "중간공백" : "추가")) : "-"}
         </Box>
       </Box>
+
+      <Typography variant="body2" sx={{ mt: 4, color: "text.secondary", whiteSpace: "pre-line" }}>
+        1. 현재 BBBBBBBBBBB ~ PPPPPPPPPPP 패턴이 입력되어있습니다.<br/>
+        2. 상단의 좌우 버튼을 누르면 한칸씩 이동합니다. 원하시는 픽을 넣은 후에 하단의 P 또는 B 버튼을 누르면 패턴이 추가됩니다.<br/>
+        3. 잘못 넣으신 경우 예측 삭제를 누르면 에측 픽이 삭제됩니다.<br/>
+        4. 특정 패턴을 넣고 싶으면 표 상단의 픽을 클릭하면 빈칸-&gt;B-&gt;P-&gt;빈칸 순으로 토글됩니다.<br/>
+      </Typography>
     </Box>
   );
 }
