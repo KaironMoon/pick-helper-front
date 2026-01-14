@@ -2,14 +2,10 @@ import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divide
 import { useTheme } from "@mui/material/styles";
 
 // 아이콘 import
-import MapIcon from "@mui/icons-material/Map";
 import InfoIcon from "@mui/icons-material/Info";
-import MenuBookIcon from "@mui/icons-material/MenuBook";
-import SettingsIcon from "@mui/icons-material/Settings";
-import NoteAddIcon from "@mui/icons-material/NoteAdd";
-import ListIcon from "@mui/icons-material/List";
 import HomeIcon from "@mui/icons-material/Home";
 import CasinoIcon from "@mui/icons-material/Casino";
+import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 
 import { useNavigate } from "react-router-dom";
 
@@ -55,11 +51,11 @@ function PageLeftMenu() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton onClick={() => handleNavClick("/picks")}>
+          <ListItemButton onClick={() => handleNavClick("/game-t1")}>
             <ListItemIcon>
-              <CasinoIcon />
+              <SportsEsportsIcon />
             </ListItemIcon>
-            <ListItemText primary="pick입력" />
+            <ListItemText primary="Game T1" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
@@ -81,27 +77,11 @@ function PageLeftMenu() {
           />
           <List>
             <ListItem disablePadding>
-              <ListItemButton onClick={() => handleNavClick("/tactic-manuals")}>
+              <ListItemButton onClick={() => handleNavClick("/picks")}>
                 <ListItemIcon>
-                  <MenuBookIcon />
+                  <CasinoIcon />
                 </ListItemIcon>
-                <ListItemText primary="메뉴3" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton onClick={() => handleNavClick("/session")}>
-                <ListItemIcon>
-                  <ListIcon />
-                </ListItemIcon>
-                <ListItemText primary="메뉴4" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton onClick={() => handleNavClick("/client-options")}>
-                <ListItemIcon>
-                  <SettingsIcon />
-                </ListItemIcon>
-                <ListItemText primary="Client Option" />
+                <ListItemText primary="pick입력" />
               </ListItemButton>
             </ListItem>
           </List>

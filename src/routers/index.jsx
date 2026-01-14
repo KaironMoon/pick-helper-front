@@ -5,6 +5,7 @@ import Info from "../pages/info";
 import NotFound from "../pages/error/NotFound";
 import PageLayout from "../pages/PageLayout";
 import Picks from "../pages/picks";
+import GameT1 from "../pages/game-t1";
 
 const ProductLayout = lazy(() => import("../pages/product/ProductLayout"));
 const ProductList = lazy(() => import("../pages/product"));
@@ -47,6 +48,10 @@ const router = createBrowserRouter([
       {
         path: "/picks",
         element: <Picks />,
+      },
+      {
+        path: "/game-t1",
+        element: <GameT1 />,
       },
       ...ProductRouter,
     ],
