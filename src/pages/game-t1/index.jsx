@@ -47,6 +47,7 @@ const calculateCircleGrid = (results, nextPick) => {
   let row = 0;
   let prevValue = null;
   let verticalStartCol = 0;
+  let isBent = false; // 꺾임 상태 추적
 
   for (let i = 0; i < picks.length; i++) {
     const current = picks[i];
@@ -55,12 +56,17 @@ const calculateCircleGrid = (results, nextPick) => {
       grid[row][col] = { type: current, filled: true };
       verticalStartCol = col;
     } else if (current === prevValue) {
-      if (row >= GRID_ROWS - 1) {
-        // 맨 아래 행이면 수평 이동
+      if (isBent) {
+        // 이미 꺾였으면 계속 수평 이동
         col++;
+      } else if (row >= GRID_ROWS - 1) {
+        // 맨 아래 행이면 수평 이동 (꺾임)
+        col++;
+        isBent = true;
       } else if (grid[row + 1][col]) {
-        // 다음 행이 이미 차있으면 수평 이동
+        // 다음 행이 이미 차있으면 수평 이동 (꺾임)
         col++;
+        isBent = true;
       } else {
         // 다음 행이 비어있으면 아래로
         row++;
@@ -71,6 +77,7 @@ const calculateCircleGrid = (results, nextPick) => {
       verticalStartCol++;
       col = verticalStartCol;
       row = 0;
+      isBent = false; // 새 값이면 꺾임 상태 초기화
       if (col >= GRID_COLS) break;
       grid[row][col] = { type: current, filled: true };
     }
