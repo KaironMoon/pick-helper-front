@@ -118,8 +118,8 @@ const generatePatterns = (rangeNum) => {
   return patterns;
 };
 
-// 원 패턴 그리드 계산 (game-t1과 동일한 로직, 18컬럼용)
-const calculateCircleGrid = (prevPicks, gridRows, gridCols) => {
+// 원 패턴 그리드 계산 (game-t1과 동일한 로직, 18컬럼용) + 예상픽 표시
+const calculateCircleGrid = (prevPicks, gridRows, gridCols, nextPicks = []) => {
   const grid = Array(gridRows)
     .fill(null)
     .map(() => Array(gridCols).fill(null));
@@ -165,6 +165,36 @@ const calculateCircleGrid = (prevPicks, gridRows, gridCols) => {
     prevValue = current;
   }
 
+  // 예상픽 추가 (filled: false로 표시)
+  for (const nextPick of nextPicks) {
+    if (!nextPick || col >= gridCols) break;
+
+    if (nextPick === prevValue) {
+      if (isBent) {
+        col++;
+      } else if (row >= gridRows - 1) {
+        col++;
+        isBent = true;
+      } else if (grid[row + 1] && grid[row + 1][col]) {
+        col++;
+        isBent = true;
+      } else {
+        row++;
+      }
+      if (col >= gridCols) break;
+      grid[row][col] = { type: nextPick, filled: false };
+    } else {
+      verticalStartCol++;
+      col = verticalStartCol;
+      row = 0;
+      isBent = false;
+      if (col >= gridCols) break;
+      grid[row][col] = { type: nextPick, filled: false };
+    }
+
+    prevValue = nextPick;
+  }
+
   return grid;
 };
 
@@ -177,7 +207,11 @@ export default function PickManagementPage() {
   const [selectedPattern, setSelectedPattern] = useState(null); // 선택된 패턴
   const [dlNickname, setDlNickname] = useState(""); // DL 표시용 약칭
   const [scrollTargetCode, setScrollTargetCode] = useState(null); // 스크롤 대상 코드
+  const [pickMode, setPickMode] = useState(1); // 1, 3, 6
   const [currentPick1, setCurrentPick1] = useState(null); // 현재 1pick 예측
+  const [currentPick3, setCurrentPick3] = useState(["", "", ""]); // 3pick 배열
+  const [currentPick6, setCurrentPick6] = useState(["", "", "", "", "", ""]); // 6pick 배열
+  const [currentPickIndex, setCurrentPickIndex] = useState(0); // 현재 입력 위치
   const rowRefs = useRef({}); // 행 refs
 
   // API에서 picks2 데이터 로드
@@ -230,12 +264,17 @@ export default function PickManagementPage() {
     const prevPicks = item.prev_picks || item.pattern || "";
     const nickname = item.shortname || item.nickname || item.abbr || "";
     const pick1 = item.next_pick_1 || null;
+    const pick3 = item.next_pick_3 || "";
+    const pick6 = item.next_pick_6 || "";
 
     setFetchCode(code);
     setDlNickname(nickname);
     setSelectedPattern(prevPicks);
-    setScrollTargetCode(code); // 하이라이트 표시
-    setCurrentPick1(pick1); // 1pick 예측 설정
+    setScrollTargetCode(code);
+    setCurrentPick1(pick1);
+    setCurrentPick3(pick3 ? pick3.split("") : ["", "", ""]);
+    setCurrentPick6(pick6 ? pick6.split("") : ["", "", "", "", "", ""]);
+    setCurrentPickIndex(0);
   };
 
   // 가져오기 버튼 핸들러
@@ -264,10 +303,15 @@ export default function PickManagementPage() {
         const prevPicks = data.prev_picks || "";
         const nickname = data.shortname || data.nickname || "";
         const pick1 = data.next_pick_1 || null;
+        const pick3 = data.next_pick_3 || "";
+        const pick6 = data.next_pick_6 || "";
 
         setDlNickname(nickname);
         setSelectedPattern(prevPicks);
-        setCurrentPick1(pick1); // 1pick 예측 설정
+        setCurrentPick1(pick1);
+        setCurrentPick3(pick3 ? pick3.split("") : ["", "", ""]);
+        setCurrentPick6(pick6 ? pick6.split("") : ["", "", "", "", "", ""]);
+        setCurrentPickIndex(0);
 
         // 스크롤 대상 설정
         setScrollTargetCode(`${code1}-${code2}`);
@@ -318,8 +362,8 @@ export default function PickManagementPage() {
     }
   };
 
-  // 1pick 저장 (P/B 버튼 클릭)
-  const handleSavePick1 = async (pick) => {
+  // P/B 버튼 클릭 핸들러
+  const handlePickClick = async (pick, idx = 0) => {
     if (!fetchCode) return;
 
     const parts = fetchCode.split("-");
@@ -329,31 +373,87 @@ export default function PickManagementPage() {
     const code2 = parseInt(parts[1], 10);
     if (isNaN(code1) || isNaN(code2)) return;
 
-    try {
-      const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ next_pick_1: pick }),
-      });
+    if (pickMode === 1) {
+      // 1pick 모드
+      try {
+        const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ next_pick_1: pick }),
+        });
 
-      if (response.ok) {
-        setCurrentPick1(pick);
-        // 로컬 데이터 업데이트
-        setPatterns(prev => prev.map(p => {
-          const pCode = p.code1 ? `${p.code1}-${p.code2}` : p.code;
-          if (pCode === fetchCode) {
-            return { ...p, next_pick_1: pick };
-          }
-          return p;
-        }));
+        if (response.ok) {
+          setCurrentPick1(pick);
+          setPatterns(prev => prev.map(p => {
+            const pCode = p.code1 ? `${p.code1}-${p.code2}` : p.code;
+            if (pCode === fetchCode) {
+              return { ...p, next_pick_1: pick };
+            }
+            return p;
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to save 1pick:", error);
       }
-    } catch (error) {
-      console.error("Failed to save 1pick:", error);
+    } else if (pickMode === 3) {
+      // 3pick 모드 - idx 위치에 저장
+      const newPicks = [...currentPick3];
+      newPicks[idx] = pick;
+      setCurrentPick3(newPicks);
+
+      // 서버 저장
+      const pickStr = newPicks.join("");
+      try {
+        const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ next_pick_3: pickStr }),
+        });
+
+        if (response.ok) {
+          setPatterns(prev => prev.map(p => {
+            const pCode = p.code1 ? `${p.code1}-${p.code2}` : p.code;
+            if (pCode === fetchCode) {
+              return { ...p, next_pick_3: pickStr };
+            }
+            return p;
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to save 3pick:", error);
+      }
+    } else if (pickMode === 6) {
+      // 6pick 모드 - idx 위치에 저장
+      const newPicks = [...currentPick6];
+      newPicks[idx] = pick;
+      setCurrentPick6(newPicks);
+
+      // 서버 저장
+      const pickStr = newPicks.join("");
+      try {
+        const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ next_pick_6: pickStr }),
+        });
+
+        if (response.ok) {
+          setPatterns(prev => prev.map(p => {
+            const pCode = p.code1 ? `${p.code1}-${p.code2}` : p.code;
+            if (pCode === fetchCode) {
+              return { ...p, next_pick_6: pickStr };
+            }
+            return p;
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to save 6pick:", error);
+      }
     }
   };
 
   // 예측 삭제
-  const handleDeletePick1 = async () => {
+  const handleDeletePick = async () => {
     if (!fetchCode) return;
 
     const parts = fetchCode.split("-");
@@ -363,26 +463,35 @@ export default function PickManagementPage() {
     const code2 = parseInt(parts[1], 10);
     if (isNaN(code1) || isNaN(code2)) return;
 
+    const fieldName = pickMode === 1 ? "next_pick_1" : pickMode === 3 ? "next_pick_3" : "next_pick_6";
+
     try {
       const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ next_pick_1: null }),
+        body: JSON.stringify({ [fieldName]: null }),
       });
 
       if (response.ok) {
-        setCurrentPick1(null);
-        // 로컬 데이터 업데이트
+        if (pickMode === 1) {
+          setCurrentPick1(null);
+        } else if (pickMode === 3) {
+          setCurrentPick3(["", "", ""]);
+        } else {
+          setCurrentPick6(["", "", "", "", "", ""]);
+        }
+        setCurrentPickIndex(0);
+
         setPatterns(prev => prev.map(p => {
           const pCode = p.code1 ? `${p.code1}-${p.code2}` : p.code;
           if (pCode === fetchCode) {
-            return { ...p, next_pick_1: null };
+            return { ...p, [fieldName]: null };
           }
           return p;
         }));
       }
     } catch (error) {
-      console.error("Failed to delete 1pick:", error);
+      console.error("Failed to delete pick:", error);
     }
   };
 
@@ -390,7 +499,15 @@ export default function PickManagementPage() {
   const GRID_COLS = 18;
 
   // 그리드 계산
-  const grid = calculateCircleGrid(selectedPattern, GRID_ROWS, GRID_COLS);
+  // 현재 모드에 따른 예상픽 배열
+  const getNextPicks = () => {
+    if (pickMode === 1) return currentPick1 ? [currentPick1] : [];
+    if (pickMode === 3) return currentPick3.filter(p => p);
+    if (pickMode === 6) return currentPick6.filter(p => p);
+    return [];
+  };
+
+  const grid = calculateCircleGrid(selectedPattern, GRID_ROWS, GRID_COLS, getNextPicks());
 
   // 전체 너비 계산: 격자(18*28 + 17gap + 2border) + gap(24) + 컨트롤영역
   const CONTENT_WIDTH = 850;
@@ -434,65 +551,131 @@ export default function PickManagementPage() {
         {/* 우측: 입력 컨트롤 */}
         <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", width: 300 }}>
           {/* 상단: Row 1 + Row 2 */}
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-            {/* Row 1: P, B, 예측 삭제 */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%" }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {/* Row 1: P/B 버튼들 + 삭제 */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
+            {/* P/B 버튼 세트들 */}
+            {pickMode === 6 ? (
+              // 6pick: 2줄 (3개씩), 전체 높이 45
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flex: 1 }}>
+                {[0, 3].map((rowStart) => (
+                  <Box key={rowStart} sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+                    {[0, 1, 2].map((offset) => {
+                      const idx = rowStart + offset;
+                      const currentValue = currentPick6[idx];
+                      return (
+                        <Box key={idx} sx={{ display: "flex", gap: 0.25, flex: 1 }}>
+                          <Box
+                            onClick={() => handlePickClick("P", idx)}
+                            sx={{
+                              flex: 1, height: 20, borderRadius: 0.5,
+                              backgroundColor: currentValue === "P" ? "#1565c0" : "#9e9e9e",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: "#fff", fontSize: 11, fontWeight: "bold",
+                              cursor: fetchCode ? "pointer" : "default",
+                              opacity: fetchCode ? 1 : 0.5,
+                              "&:hover": fetchCode ? { opacity: 0.8 } : {},
+                            }}
+                          >P</Box>
+                          <Box
+                            onClick={() => handlePickClick("B", idx)}
+                            sx={{
+                              flex: 1, height: 20, borderRadius: 0.5,
+                              backgroundColor: currentValue === "B" ? "#f44336" : "#9e9e9e",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: "#fff", fontSize: 11, fontWeight: "bold",
+                              cursor: fetchCode ? "pointer" : "default",
+                              opacity: fetchCode ? 1 : 0.5,
+                              "&:hover": fetchCode ? { opacity: 0.8 } : {},
+                            }}
+                          >B</Box>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                ))}
+              </Box>
+            ) : pickMode === 3 ? (
+              // 3pick: 1줄, 높이 45
+              <Box sx={{ display: "flex", gap: 0.5, alignItems: "center", flex: 1 }}>
+                {Array.from({ length: 3 }).map((_, idx) => {
+                  const currentValue = currentPick3[idx];
+                  return (
+                    <Box key={idx} sx={{ display: "flex", gap: 0.25, flex: 1 }}>
+                      <Box
+                        onClick={() => handlePickClick("P", idx)}
+                        sx={{
+                          flex: 1, height: 45, borderRadius: 1,
+                          backgroundColor: currentValue === "P" ? "#1565c0" : "#9e9e9e",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#fff", fontSize: 14, fontWeight: "bold",
+                          cursor: fetchCode ? "pointer" : "default",
+                          opacity: fetchCode ? 1 : 0.5,
+                          "&:hover": fetchCode ? { opacity: 0.8 } : {},
+                        }}
+                      >P</Box>
+                      <Box
+                        onClick={() => handlePickClick("B", idx)}
+                        sx={{
+                          flex: 1, height: 45, borderRadius: 1,
+                          backgroundColor: currentValue === "B" ? "#f44336" : "#9e9e9e",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#fff", fontSize: 14, fontWeight: "bold",
+                          cursor: fetchCode ? "pointer" : "default",
+                          opacity: fetchCode ? 1 : 0.5,
+                          "&:hover": fetchCode ? { opacity: 0.8 } : {},
+                        }}
+                      >B</Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            ) : (
+              // 1pick: 꽉 채우기, 높이 45
+              <Box sx={{ display: "flex", gap: 0.5, alignItems: "center", flex: 1 }}>
+                <Box
+                  onClick={() => handlePickClick("P", 0)}
+                  sx={{
+                    flex: 1, height: 45, borderRadius: 1,
+                    backgroundColor: currentPick1 === "P" ? "#1565c0" : "#9e9e9e",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#fff", fontSize: 18, fontWeight: "bold",
+                    cursor: fetchCode ? "pointer" : "default",
+                    opacity: fetchCode ? 1 : 0.5,
+                    "&:hover": fetchCode ? { opacity: 0.8 } : {},
+                  }}
+                >P</Box>
+                <Box
+                  onClick={() => handlePickClick("B", 0)}
+                  sx={{
+                    flex: 1, height: 45, borderRadius: 1,
+                    backgroundColor: currentPick1 === "B" ? "#f44336" : "#9e9e9e",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#fff", fontSize: 18, fontWeight: "bold",
+                    cursor: fetchCode ? "pointer" : "default",
+                    opacity: fetchCode ? 1 : 0.5,
+                    "&:hover": fetchCode ? { opacity: 0.8 } : {},
+                  }}
+                >B</Box>
+              </Box>
+            )}
+            {/* 삭제 버튼 */}
             <Box
-              onClick={() => handleSavePick1("P")}
+              onClick={handleDeletePick}
               sx={{
-                width: 80,
+                px: 2,
                 height: 45,
-                borderRadius: 2,
-                backgroundColor: currentPick1 === "P" ? "#1565c0" : "#9e9e9e",
+                border: "1px solid rgba(255,255,255,0.5)",
+                borderRadius: 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#fff",
-                fontSize: 20,
-                fontWeight: "bold",
                 cursor: fetchCode ? "pointer" : "default",
                 opacity: fetchCode ? 1 : 0.5,
-                "&:hover": fetchCode ? { opacity: 0.8 } : {},
+                "&:hover": fetchCode ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
               }}
             >
-              P
-            </Box>
-            <Box
-              onClick={() => handleSavePick1("B")}
-              sx={{
-                width: 80,
-                height: 45,
-                borderRadius: 2,
-                backgroundColor: currentPick1 === "B" ? "#f44336" : "#9e9e9e",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#fff",
-                fontSize: 20,
-                fontWeight: "bold",
-                cursor: fetchCode ? "pointer" : "default",
-                opacity: fetchCode ? 1 : 0.5,
-                "&:hover": fetchCode ? { opacity: 0.8 } : {},
-              }}
-            >
-              B
-            </Box>
-            <Box
-              onClick={handleDeletePick1}
-              sx={{
-                flex: 1,
-                height: 45,
-                border: "2px solid rgba(255,255,255,0.5)",
-                borderRadius: 2,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: fetchCode && currentPick1 ? "pointer" : "default",
-                opacity: fetchCode && currentPick1 ? 1 : 0.5,
-                "&:hover": fetchCode && currentPick1 ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
-              }}
-            >
-              <Typography>예측 삭제</Typography>
+              <Typography sx={{ fontSize: 13 }}>삭제</Typography>
             </Box>
           </Box>
 
@@ -677,14 +860,38 @@ export default function PickManagementPage() {
           <Typography variant="caption" sx={{ width: 45, textAlign: "center" }}>약칭</Typography>
           <Typography variant="caption" sx={{ width: 50, textAlign: "center" }}>번호</Typography>
           <Typography variant="caption" sx={{ width: 250, textAlign: "center" }}>패턴</Typography>
-          <Box sx={{ width: 36, textAlign: "center", border: "2px solid #4caf50", borderRadius: 1, py: 0.5, backgroundColor: "rgba(76, 175, 80, 0.15)" }}>
-            <Typography variant="caption" sx={{ color: "#4caf50", fontWeight: "bold" }}>1pick</Typography>
+          <Box
+            onClick={() => setPickMode(1)}
+            sx={{
+              width: 36, textAlign: "center", borderRadius: 1, py: 0.5, cursor: "pointer",
+              border: pickMode === 1 ? "2px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+              backgroundColor: pickMode === 1 ? "rgba(76, 175, 80, 0.15)" : "transparent",
+              "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+            }}
+          >
+            <Typography variant="caption" sx={{ color: pickMode === 1 ? "#4caf50" : "inherit", fontWeight: pickMode === 1 ? "bold" : "normal" }}>1pick</Typography>
           </Box>
-          <Box sx={{ width: 85, textAlign: "center", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 1, py: 0.5 }}>
-            <Typography variant="caption">3pick</Typography>
+          <Box
+            onClick={() => setPickMode(3)}
+            sx={{
+              width: 85, textAlign: "center", borderRadius: 1, py: 0.5, cursor: "pointer",
+              border: pickMode === 3 ? "2px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+              backgroundColor: pickMode === 3 ? "rgba(76, 175, 80, 0.15)" : "transparent",
+              "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+            }}
+          >
+            <Typography variant="caption" sx={{ color: pickMode === 3 ? "#4caf50" : "inherit", fontWeight: pickMode === 3 ? "bold" : "normal" }}>3pick</Typography>
           </Box>
-          <Box sx={{ width: 170, textAlign: "center", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 1, py: 0.5 }}>
-            <Typography variant="caption">6pick</Typography>
+          <Box
+            onClick={() => setPickMode(6)}
+            sx={{
+              width: 170, textAlign: "center", borderRadius: 1, py: 0.5, cursor: "pointer",
+              border: pickMode === 6 ? "2px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+              backgroundColor: pickMode === 6 ? "rgba(76, 175, 80, 0.15)" : "transparent",
+              "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+            }}
+          >
+            <Typography variant="caption" sx={{ color: pickMode === 6 ? "#4caf50" : "inherit", fontWeight: pickMode === 6 ? "bold" : "normal" }}>6pick</Typography>
           </Box>
         </Box>
 
