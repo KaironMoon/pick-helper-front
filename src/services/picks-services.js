@@ -25,3 +25,8 @@ export const deletePattern = (prevPicks) => {
 export const addPattern = (prevPicks, nextPick = null) => {
   return apiCaller.post("/api/v1/picks/add", { prev_picks: prevPicks, next_pick: nextPick });
 };
+
+// picks2 API
+export const getPick2ByPattern = (prevPicks) => {
+  return apiCaller.get(`/api/v1/picks2/pattern/${prevPicks}`);
+};

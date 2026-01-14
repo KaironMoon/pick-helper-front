@@ -103,12 +103,18 @@ const PickCircle = ({ type, size = 24 }) => {
 };
 
 // 패턴 생성 함수 (128개)
+// code1 (1~16): 상위 4비트, code2 (1~128): 하위 7비트
 const generatePatterns = (rangeNum) => {
   const patterns = [];
+  // code1은 1-based, 상위 4비트 결정
+  const prefixBits = (rangeNum - 1).toString(2).padStart(4, '0');
+  const prefix = prefixBits.split('').map(b => b === '0' ? 'B' : 'P').join('');
+
   for (let i = 0; i < 128; i++) {
-    // 7비트 이진수로 변환 (B=0, P=1)
-    const binary = i.toString(2).padStart(7, '0');
-    const patternStr = 'BBBB' + binary.split('').map(b => b === '0' ? 'B' : 'P').join('');
+    // 하위 7비트
+    const suffixBits = i.toString(2).padStart(7, '0');
+    const suffix = suffixBits.split('').map(b => b === '0' ? 'B' : 'P').join('');
+    const patternStr = prefix + suffix;
     patterns.push({
       abbr: "",
       code: `${rangeNum}-${i + 1}`,
@@ -469,7 +475,7 @@ export default function PickManagementPage() {
       const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [fieldName]: null }),
+        body: JSON.stringify({ [fieldName]: "" }),
       });
 
       if (response.ok) {

@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Box, Typography, Paper } from "@mui/material";
-import { saveGame } from "@/services/game-services";
-import { getPickByPattern } from "@/services/picks-services";
+import { saveGameV2 } from "@/services/game-services";
+import { getPick2ByPattern } from "@/services/picks-services";
 
 const GRID_ROWS = 6;
 const GRID_COLS = 32;
@@ -35,7 +35,7 @@ const Circle = ({ type, filled = true }) => {
 };
 
 // 원 패턴 그리드 계산 (picks 페이지와 동일한 로직)
-const calculateCircleGrid = (results, nextPick) => {
+const calculateCircleGrid = (results, nextPicks = []) => {
   const grid = Array(GRID_ROWS)
     .fill(null)
     .map(() => Array(GRID_COLS).fill(null));
@@ -85,22 +85,32 @@ const calculateCircleGrid = (results, nextPick) => {
     prevValue = current;
   }
 
-  // 다음 픽 표시 (빈 원)
-  if (nextPick && col < GRID_COLS) {
+  // 예상픽 표시 (filled: false로 표시)
+  for (const nextPick of nextPicks) {
+    if (!nextPick || col >= GRID_COLS) break;
+
     if (nextPick === prevValue) {
-      if (row >= GRID_ROWS - 1) {
+      if (isBent) {
         col++;
+      } else if (row >= GRID_ROWS - 1) {
+        col++;
+        isBent = true;
+      } else if (grid[row + 1] && grid[row + 1][col]) {
+        col++;
+        isBent = true;
       } else {
         row++;
       }
-      if (col < GRID_COLS) {
-        grid[row][col] = { type: nextPick, filled: false };
-      }
     } else {
       verticalStartCol++;
-      if (verticalStartCol < GRID_COLS) {
-        grid[0][verticalStartCol] = { type: nextPick, filled: false };
-      }
+      col = verticalStartCol;
+      row = 0;
+      isBent = false;
+    }
+
+    if (col < GRID_COLS) {
+      grid[row][col] = { type: nextPick, filled: false };
+      prevValue = nextPick;
     }
   }
 
@@ -110,36 +120,66 @@ const calculateCircleGrid = (results, nextPick) => {
 export default function GameT1Page() {
   const [results, setResults] = useState([]);
   const [selectedInput, setSelectedInput] = useState(null); // "P" or "B"
-  const [currentPick, setCurrentPick] = useState(null); // 시스템이 제공한 픽
-  const [currentPicksSeq, setCurrentPicksSeq] = useState(null); // 매칭된 picks_seq
+  const [currentPick, setCurrentPick] = useState(null); // 시스템이 제공한 픽 (1pick용)
+  const [currentPick3, setCurrentPick3] = useState([]); // 3pick 배열
+  const [currentPick6, setCurrentPick6] = useState([]); // 6pick 배열
+  const [currentPicksSeq, setCurrentPicksSeq] = useState(null); // 매칭된 picks2_seq
+  const [currentPickCode, setCurrentPickCode] = useState(null); // pick_code (예: "1-29")
+  const [pickMode, setPickMode] = useState(1); // 1, 3, 6
+  const [predictOrder, setPredictOrder] = useState(0); // 3pick/6pick에서 현재 순서 (0, 1, 2 또는 0~5)
 
   const currentTurn = results.length + 1;
 
-  // 패턴으로 픽 조회
+  // 패턴으로 픽 조회 (picks2 테이블 사용)
   const fetchPick = useCallback(async (pattern) => {
     if (!pattern) {
       setCurrentPick(null);
+      setCurrentPick3([]);
+      setCurrentPick6([]);
       setCurrentPicksSeq(null);
+      setCurrentPickCode(null);
       return;
     }
     try {
-      const response = await getPickByPattern(pattern);
-      if (response.data.next_pick) {
-        setCurrentPick(response.data.next_pick);
-        setCurrentPicksSeq(response.data.seq);
-      } else {
-        setCurrentPick(null);
-        setCurrentPicksSeq(null);
-      }
+      const response = await getPick2ByPattern(pattern);
+      const pickCode = `${response.data.code1}-${response.data.code2}`;
+      setCurrentPicksSeq(response.data.picks2_seq);
+      setCurrentPickCode(pickCode);
+
+      // 1pick
+      setCurrentPick(response.data.next_pick_1 || null);
+      // 3pick
+      setCurrentPick3(response.data.next_pick_3 ? response.data.next_pick_3.split("") : []);
+      // 6pick
+      setCurrentPick6(response.data.next_pick_6 ? response.data.next_pick_6.split("") : []);
     } catch {
       // 패턴 없음
       setCurrentPick(null);
+      setCurrentPick3([]);
+      setCurrentPick6([]);
       setCurrentPicksSeq(null);
+      setCurrentPickCode(null);
     }
   }, []);
 
   const handleInputSelect = (value) => {
     setSelectedInput(value);
+  };
+
+  // 현재 모드에 따른 예측 픽 가져오기 (predictOrder 반영)
+  const getCurrentPredict = () => {
+    if (pickMode === 1) return currentPick;
+    if (pickMode === 3) return currentPick3[predictOrder] || null;
+    if (pickMode === 6) return currentPick6[predictOrder] || null;
+    return null;
+  };
+
+  // 현재 모드에 따른 예측 배열 가져오기
+  const getCurrentPredictArray = () => {
+    if (pickMode === 1) return currentPick ? [currentPick] : [];
+    if (pickMode === 3) return currentPick3;
+    if (pickMode === 6) return currentPick6;
+    return [];
   };
 
   const handleEnter = () => {
@@ -151,44 +191,73 @@ export default function GameT1Page() {
       ? allValues.slice(-11).join("")
       : allValues.length > 0 ? allValues.join("") : null;
 
+    const predict = getCurrentPredict();
+    const predictType = predict ? `${pickMode}pick` : null;
+    const isCorrect = predict ? predict === selectedInput : null;
+
     const newResult = {
       value: selectedInput,
       result: selectedInput,
-      isCorrect: currentPick ? currentPick === selectedInput : null,
-      predict: currentPick,
+      isCorrect: isCorrect,
+      predict: predict,
       picks_seq: currentPicksSeq,
       prev_picks: prevPicks,
+      pick_code: currentPickCode,
+      predict_type: predictType,
+      predict_order: predict ? predictOrder + 1 : null, // 1-based로 저장
+      // 삭제 시 복원을 위해 현재 picks 상태 저장
+      _savedPicks: {
+        pick1: currentPick,
+        pick3: [...currentPick3],
+        pick6: [...currentPick6],
+        picksSeq: currentPicksSeq,
+        pickCode: currentPickCode,
+      },
     };
 
     const newResults = [...results, newResult];
     setResults(newResults);
     setSelectedInput(null);
 
-    // 새로운 패턴으로 다음 픽 조회
-    const newAllValues = newResults.map(r => r.value);
-    if (newAllValues.length >= 1) {
-      const newPattern = newAllValues.length >= 11
-        ? newAllValues.slice(-11).join("")
-        : newAllValues.join("");
-      fetchPick(newPattern);
+    // 맞았고 multi-pick 모드이면서 다음 순서가 남아있으면 순서만 증가
+    const maxOrder = pickMode === 3 ? 2 : pickMode === 6 ? 5 : 0;
+    if (isCorrect && pickMode > 1 && predictOrder < maxOrder) {
+      setPredictOrder(predictOrder + 1);
+    } else {
+      // 틀렸거나 1pick이거나 시퀀스 끝이면 새로 조회
+      setPredictOrder(0);
+      const newAllValues = newResults.map(r => r.value);
+      if (newAllValues.length >= 1) {
+        const newPattern = newAllValues.length >= 11
+          ? newAllValues.slice(-11).join("")
+          : newAllValues.join("");
+        fetchPick(newPattern);
+      }
     }
   };
 
   const handleDeleteOne = () => {
     if (results.length > 0) {
+      const deletedResult = results[results.length - 1];
       const newResults = results.slice(0, -1);
       setResults(newResults);
 
-      // 픽 재계산
-      if (newResults.length >= 1) {
-        const allValues = newResults.map(r => r.value);
-        const pattern = allValues.length >= 11
-          ? allValues.slice(-11).join("")
-          : allValues.join("");
-        fetchPick(pattern);
+      // 삭제된 결과에 저장된 picks 상태로 복원
+      if (deletedResult._savedPicks) {
+        const saved = deletedResult._savedPicks;
+        setCurrentPick(saved.pick1);
+        setCurrentPick3(saved.pick3);
+        setCurrentPick6(saved.pick6);
+        setCurrentPicksSeq(saved.picksSeq);
+        setCurrentPickCode(saved.pickCode);
+      }
+
+      // predictOrder 복원: 삭제된 턴이 사용한 order의 이전 값
+      const deletedOrder = deletedResult.predict_order;
+      if (deletedOrder && deletedOrder > 0) {
+        setPredictOrder(deletedOrder - 1);
       } else {
-        setCurrentPick(null);
-        setCurrentPicksSeq(null);
+        setPredictOrder(0);
       }
     }
   };
@@ -196,24 +265,31 @@ export default function GameT1Page() {
   const handleDeleteWhole = () => {
     setResults([]);
     setCurrentPick(null);
+    setCurrentPick3([]);
+    setCurrentPick6([]);
     setCurrentPicksSeq(null);
+    setCurrentPickCode(null);
     setSelectedInput(null);
+    setPredictOrder(0);
   };
 
-  const grid = calculateCircleGrid(results, null); // 예측 픽은 상단 격자에 표시 안함
+  const grid = calculateCircleGrid(results, getCurrentPredict() ? [getCurrentPredict()] : []);
 
   const handleSaveData = async () => {
-    // turns 배열 생성
+    // turns 배열 생성 (V2: 새 필드 포함)
     const turns = results.map((r, idx) => ({
       turn_no: idx + 1,
       result: r.result,
       predict: r.predict || null,
       picks_seq: r.picks_seq || null,
       prev_picks: r.prev_picks || null,
+      predict_type: r.predict_type || null,
+      predict_order: r.predict_order || null,
+      pick_code: r.pick_code || null,
     }));
 
     try {
-      const response = await saveGame(null, turns);
+      const response = await saveGameV2(null, turns);
       alert(`게임 저장 완료! (game_seq: ${response.data.game_seq}, ${response.data.turns_count}턴)`);
       handleDeleteWhole();
     } catch (error) {
@@ -307,17 +383,21 @@ export default function GameT1Page() {
             {[1, 3, 6].map((n) => (
               <Box
                 key={n}
+                onClick={() => { setPickMode(n); setPredictOrder(0); }}
                 sx={{
                   width: 32,
                   height: 32,
                   border: "1px solid rgba(255,255,255,0.3)",
-                  backgroundColor: n === 1 ? "rgba(255,255,255,0.2)" : "background.paper",
+                  backgroundColor: pickMode === n ? "rgba(255,255,255,0.2)" : "background.paper",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: 14,
                   cursor: "pointer",
                   color: "text.primary",
+                  "&:hover": {
+                    backgroundColor: "rgba(255,255,255,0.15)",
+                  },
                 }}
               >
                 {n}
@@ -353,14 +433,14 @@ export default function GameT1Page() {
               justifyContent: "center",
             }}
           >
-            {currentPick && (
+            {getCurrentPredict() && (
               <Box
                 sx={{
                   width: 50,
                   height: 50,
                   borderRadius: 2,
-                  backgroundColor: currentPick === "P" ? "#1565c0" : "#f44336",
-                  border: `3px solid ${currentPick === "P" ? "#1565c0" : "#f44336"}`,
+                  backgroundColor: getCurrentPredict() === "P" ? "#1565c0" : "#f44336",
+                  border: `3px solid ${getCurrentPredict() === "P" ? "#1565c0" : "#f44336"}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -369,7 +449,7 @@ export default function GameT1Page() {
                   fontWeight: "bold",
                 }}
               >
-                {currentPick}
+                {getCurrentPredict()}
               </Box>
             )}
           </Box>
@@ -422,7 +502,7 @@ export default function GameT1Page() {
               );
             })}
             {/* 현재 턴 (결과 미입력 상태) */}
-            {currentPick && (
+            {getCurrentPredict() && (
               <Box
                 sx={{
                   width: 32,
@@ -432,7 +512,7 @@ export default function GameT1Page() {
                   justifyContent: "center",
                   fontSize: 14,
                   fontWeight: 800,
-                  border: `3px solid ${currentPick === "P" ? "#1565c0" : "#f44336"}`,
+                  border: `3px solid ${getCurrentPredict() === "P" ? "#1565c0" : "#f44336"}`,
                   borderRadius: 1,
                   backgroundColor: "#fff",
                   color: "#000",
