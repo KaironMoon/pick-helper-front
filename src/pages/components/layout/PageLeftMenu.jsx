@@ -6,6 +6,7 @@ import InfoIcon from "@mui/icons-material/Info";
 import HomeIcon from "@mui/icons-material/Home";
 import CasinoIcon from "@mui/icons-material/Casino";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
+import ViewListIcon from "@mui/icons-material/ViewList";
 
 import { useNavigate } from "react-router-dom";
 
@@ -82,6 +83,14 @@ function PageLeftMenu() {
                   <CasinoIcon />
                 </ListItemIcon>
                 <ListItemText primary="pick입력" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => handleNavClick("/pick-management")}>
+                <ListItemIcon>
+                  <ViewListIcon />
+                </ListItemIcon>
+                <ListItemText primary="pick management" />
               </ListItemButton>
             </ListItem>
           </List>
