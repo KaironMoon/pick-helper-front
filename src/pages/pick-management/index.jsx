@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Box, Typography, Paper, IconButton, TextField } from "@mui/material";
+import { Box, Typography, Paper, IconButton, TextField, useMediaQuery } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { ArrowBack, ArrowForward } from "@mui/icons-material";
 
 // 순회 순서: A1 → B1 → C1 → D1 → E1 → E2 → F1~F4 → G1~G8 → 1~16 → A1
@@ -270,6 +271,8 @@ export default function PickManagementPage() {
   const [currentPick6, setCurrentPick6] = useState(["", "", "", "", "", ""]); // 6pick 배열
   const [currentPickIndex, setCurrentPickIndex] = useState(0); // 현재 입력 위치
   const rowRefs = useRef({}); // 행 refs
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   // API에서 picks2 데이터 로드
   useEffect(() => {
@@ -572,11 +575,11 @@ export default function PickManagementPage() {
   const CONTENT_WIDTH = 850;
 
   return (
-    <Box sx={{ p: 2, height: "calc(100vh - 164px)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <Box sx={{ p: isMobile ? 1 : 2, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* 상단 영역 */}
-      <Box sx={{ flexShrink: 0, width: CONTENT_WIDTH }}>
+      <Box sx={{ flexShrink: 0, width: isMobile ? "100%" : CONTENT_WIDTH }}>
       {/* 격자 + 입력 컨트롤 */}
-      <Box sx={{ display: "flex", gap: 3, mb: 2, alignItems: "stretch" }}>
+      <Box sx={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 1 : 3, mb: 2, alignItems: isMobile ? "flex-start" : "stretch" }}>
         {/* 좌측: 격자 (18x6) */}
         <Box
           sx={{
@@ -608,29 +611,38 @@ export default function PickManagementPage() {
         </Box>
 
         {/* 우측: 입력 컨트롤 */}
-        <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", width: 300 }}>
+        <Box sx={{
+          display: "flex",
+          flexDirection: isMobile ? "row" : "column",
+          justifyContent: isMobile ? "flex-start" : "space-between",
+          alignItems: isMobile ? "center" : "stretch",
+          gap: isMobile ? 1 : 0,
+          height: isMobile ? "auto" : "100%",
+          width: isMobile ? "100%" : 300,
+          flexWrap: isMobile ? "wrap" : "nowrap",
+        }}>
           {/* 상단: Row 1 + Row 2 */}
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: isMobile ? "row" : "column", gap: isMobile ? 1 : 2, alignItems: "center" }}>
             {/* Row 1: P/B 버튼들 + 삭제 */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
             {/* P/B 버튼 세트들 */}
             {pickMode === 6 ? (
-              // 6pick: 2줄 (3개씩), 전체 높이 45
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flex: 1 }}>
+              // 6pick: 2줄 (3개씩)
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flex: isMobile ? "none" : 1, width: isMobile ? "auto" : "100%" }}>
                 {[0, 3].map((rowStart) => (
                   <Box key={rowStart} sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
                     {[0, 1, 2].map((offset) => {
                       const idx = rowStart + offset;
                       const currentValue = currentPick6[idx];
                       return (
-                        <Box key={idx} sx={{ display: "flex", gap: 0.25, flex: 1 }}>
+                        <Box key={idx} sx={{ display: "flex", gap: 0.25, flex: isMobile ? "none" : 1, width: isMobile ? 90 : "auto" }}>
                           <Box
                             onClick={() => handlePickClick("P", idx)}
                             sx={{
-                              flex: 1, height: 20, borderRadius: 0.5,
+                              flex: 1, height: isMobile ? 44 : 20, borderRadius: 0.5,
                               backgroundColor: currentValue === "P" ? "#1565c0" : "#9e9e9e",
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              color: "#fff", fontSize: 11, fontWeight: "bold",
+                              color: "#fff", fontSize: isMobile ? 14 : 11, fontWeight: "bold",
                               cursor: fetchCode ? "pointer" : "default",
                               opacity: fetchCode ? 1 : 0.5,
                               "&:hover": fetchCode ? { opacity: 0.8 } : {},
@@ -639,10 +651,10 @@ export default function PickManagementPage() {
                           <Box
                             onClick={() => handlePickClick("B", idx)}
                             sx={{
-                              flex: 1, height: 20, borderRadius: 0.5,
+                              flex: 1, height: isMobile ? 44 : 20, borderRadius: 0.5,
                               backgroundColor: currentValue === "B" ? "#f44336" : "#9e9e9e",
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              color: "#fff", fontSize: 11, fontWeight: "bold",
+                              color: "#fff", fontSize: isMobile ? 14 : 11, fontWeight: "bold",
                               cursor: fetchCode ? "pointer" : "default",
                               opacity: fetchCode ? 1 : 0.5,
                               "&:hover": fetchCode ? { opacity: 0.8 } : {},
@@ -655,19 +667,19 @@ export default function PickManagementPage() {
                 ))}
               </Box>
             ) : pickMode === 3 ? (
-              // 3pick: 1줄, 높이 45
-              <Box sx={{ display: "flex", gap: 0.5, alignItems: "center", flex: 1 }}>
+              // 3pick: 1줄
+              <Box sx={{ display: "flex", gap: 0.5, alignItems: "center", flex: isMobile ? "none" : 1, width: isMobile ? "auto" : "100%" }}>
                 {Array.from({ length: 3 }).map((_, idx) => {
                   const currentValue = currentPick3[idx];
                   return (
-                    <Box key={idx} sx={{ display: "flex", gap: 0.25, flex: 1 }}>
+                    <Box key={idx} sx={{ display: "flex", gap: 0.25, flex: isMobile ? "none" : 1, width: isMobile ? 90 : "auto" }}>
                       <Box
                         onClick={() => handlePickClick("P", idx)}
                         sx={{
-                          flex: 1, height: 45, borderRadius: 1,
+                          flex: 1, height: isMobile ? 64 : 45, borderRadius: 1,
                           backgroundColor: currentValue === "P" ? "#1565c0" : "#9e9e9e",
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          color: "#fff", fontSize: 14, fontWeight: "bold",
+                          color: "#fff", fontSize: isMobile ? 18 : 14, fontWeight: "bold",
                           cursor: fetchCode ? "pointer" : "default",
                           opacity: fetchCode ? 1 : 0.5,
                           "&:hover": fetchCode ? { opacity: 0.8 } : {},
@@ -676,10 +688,10 @@ export default function PickManagementPage() {
                       <Box
                         onClick={() => handlePickClick("B", idx)}
                         sx={{
-                          flex: 1, height: 45, borderRadius: 1,
+                          flex: 1, height: isMobile ? 64 : 45, borderRadius: 1,
                           backgroundColor: currentValue === "B" ? "#f44336" : "#9e9e9e",
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          color: "#fff", fontSize: 14, fontWeight: "bold",
+                          color: "#fff", fontSize: isMobile ? 18 : 14, fontWeight: "bold",
                           cursor: fetchCode ? "pointer" : "default",
                           opacity: fetchCode ? 1 : 0.5,
                           "&:hover": fetchCode ? { opacity: 0.8 } : {},
@@ -690,15 +702,15 @@ export default function PickManagementPage() {
                 })}
               </Box>
             ) : (
-              // 1pick: 꽉 채우기, 높이 45
-              <Box sx={{ display: "flex", gap: 0.5, alignItems: "center", flex: 1 }}>
+              // 1pick: 꽉 채우기
+              <Box sx={{ display: "flex", gap: 0.5, alignItems: "center", flex: isMobile ? "none" : 1, width: isMobile ? "auto" : "100%" }}>
                 <Box
                   onClick={() => handlePickClick("P", 0)}
                   sx={{
-                    flex: 1, height: 45, borderRadius: 1,
+                    width: isMobile ? 64 : "auto", flex: isMobile ? "none" : 1, height: isMobile ? 64 : 45, borderRadius: 1,
                     backgroundColor: currentPick1 === "P" ? "#1565c0" : "#9e9e9e",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "#fff", fontSize: 18, fontWeight: "bold",
+                    color: "#fff", fontSize: isMobile ? 20 : 18, fontWeight: "bold",
                     cursor: fetchCode ? "pointer" : "default",
                     opacity: fetchCode ? 1 : 0.5,
                     "&:hover": fetchCode ? { opacity: 0.8 } : {},
@@ -707,10 +719,10 @@ export default function PickManagementPage() {
                 <Box
                   onClick={() => handlePickClick("B", 0)}
                   sx={{
-                    flex: 1, height: 45, borderRadius: 1,
+                    width: isMobile ? 64 : "auto", flex: isMobile ? "none" : 1, height: isMobile ? 64 : 45, borderRadius: 1,
                     backgroundColor: currentPick1 === "B" ? "#f44336" : "#9e9e9e",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "#fff", fontSize: 18, fontWeight: "bold",
+                    color: "#fff", fontSize: isMobile ? 20 : 18, fontWeight: "bold",
                     cursor: fetchCode ? "pointer" : "default",
                     opacity: fetchCode ? 1 : 0.5,
                     "&:hover": fetchCode ? { opacity: 0.8 } : {},
@@ -722,8 +734,8 @@ export default function PickManagementPage() {
             <Box
               onClick={handleDeletePick}
               sx={{
-                px: 2,
-                height: 45,
+                px: isMobile ? 1 : 2,
+                height: isMobile ? 64 : 45,
                 border: "1px solid rgba(255,255,255,0.5)",
                 borderRadius: 1,
                 display: "flex",
@@ -734,25 +746,25 @@ export default function PickManagementPage() {
                 "&:hover": fetchCode ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
               }}
             >
-              <Typography sx={{ fontSize: 13 }}>삭제</Typography>
+              <Typography sx={{ fontSize: isMobile ? 13 : 13 }}>삭제</Typography>
             </Box>
           </Box>
 
           {/* Row 2: 입력필드, 가져오기, DL */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, width: "100%" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: isMobile ? 0.5 : 1.5, width: isMobile ? "auto" : "100%" }}>
             <TextField
               size="small"
               placeholder="1-1"
               value={fetchCode}
               onChange={(e) => setFetchCode(e.target.value)}
               sx={{
-                width: 100,
+                width: isMobile ? 70 : 100,
                 "& .MuiOutlinedInput-root": {
-                  height: 45,
-                  borderRadius: 2,
+                  height: isMobile ? 64 : 45,
+                  borderRadius: isMobile ? 1 : 2,
                   "& fieldset": {
                     borderColor: "#1565c0",
-                    borderWidth: 2,
+                    borderWidth: isMobile ? 1 : 2,
                   },
                   "&:hover fieldset": {
                     borderColor: "#1976d2",
@@ -763,17 +775,17 @@ export default function PickManagementPage() {
                 },
                 "& .MuiInputBase-input": {
                   textAlign: "center",
-                  fontSize: 18,
+                  fontSize: isMobile ? 16 : 18,
                 },
               }}
             />
             <Box
               onClick={handleFetchByCode}
               sx={{
-                height: 45,
-                border: "2px solid #4caf50",
-                borderRadius: 2,
-                px: 3,
+                height: isMobile ? 64 : 45,
+                border: isMobile ? "1px solid #4caf50" : "2px solid #4caf50",
+                borderRadius: isMobile ? 1 : 2,
+                px: isMobile ? 1.5 : 3,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -781,7 +793,7 @@ export default function PickManagementPage() {
                 "&:hover": { backgroundColor: "rgba(76,175,80,0.1)" },
               }}
             >
-              <Typography sx={{ color: "#fff", whiteSpace: "nowrap" }}>가져오기</Typography>
+              <Typography sx={{ color: "#fff", whiteSpace: "nowrap", fontSize: isMobile ? 13 : 14 }}>가져오기</Typography>
             </Box>
             <TextField
               size="small"
@@ -790,13 +802,14 @@ export default function PickManagementPage() {
               onChange={(e) => setDlNickname(e.target.value)}
               onBlur={handleDlBlur}
               sx={{
-                flex: 1,
+                width: isMobile ? 55 : "auto",
+                flex: isMobile ? "none" : 1,
                 "& .MuiOutlinedInput-root": {
-                  height: 45,
-                  borderRadius: 2,
+                  height: isMobile ? 64 : 45,
+                  borderRadius: isMobile ? 1 : 2,
                   "& fieldset": {
                     borderColor: "rgba(255,255,255,0.5)",
-                    borderWidth: 2,
+                    borderWidth: isMobile ? 1 : 2,
                   },
                   "&:hover fieldset": {
                     borderColor: "rgba(255,255,255,0.7)",
@@ -807,7 +820,7 @@ export default function PickManagementPage() {
                 },
                 "& .MuiInputBase-input": {
                   textAlign: "center",
-                  fontSize: 14,
+                  fontSize: isMobile ? 13 : 14,
                 },
               }}
             />
@@ -815,62 +828,62 @@ export default function PickManagementPage() {
           </Box>
 
           {/* Row 3: P/B 퍼센트 표시 - P | P% | B% | B */}
-          <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5, mt: 2, width: "100%" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: isMobile ? 0.5 : 1.5, mt: isMobile ? 0 : 2, width: isMobile ? "auto" : "100%" }}>
             <Box
               sx={{
-                width: 55,
-                height: 55,
-                borderRadius: 2,
-                border: "3px solid #0d47a1",
+                width: isMobile ? 44 : 55,
+                height: isMobile ? 64 : 55,
+                borderRadius: isMobile ? 1 : 2,
+                border: isMobile ? "2px solid #0d47a1" : "3px solid #0d47a1",
                 backgroundColor: "#3399fe",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 color: "#fff",
-                fontSize: 24,
+                fontSize: isMobile ? 18 : 24,
                 fontWeight: "bold",
               }}
             >
               P
             </Box>
-            <Box sx={{ display: "flex", flex: 1 }}>
+            <Box sx={{ display: "flex", width: isMobile ? 100 : "auto", flex: isMobile ? "none" : 1 }}>
               <Box
                 sx={{
                   flex: 1,
-                  height: 55,
+                  height: isMobile ? 64 : 55,
                   backgroundColor: "#3399fe",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Typography sx={{ color: "#fff", fontSize: 16 }}>-%</Typography>
+                <Typography sx={{ color: "#fff", fontSize: isMobile ? 14 : 16 }}>-%</Typography>
               </Box>
               <Box
                 sx={{
                   flex: 1,
-                  height: 55,
+                  height: isMobile ? 64 : 55,
                   backgroundColor: "#fe5050",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Typography sx={{ color: "#fff", fontSize: 16 }}>-%</Typography>
+                <Typography sx={{ color: "#fff", fontSize: isMobile ? 14 : 16 }}>-%</Typography>
               </Box>
             </Box>
             <Box
               sx={{
-                width: 55,
-                height: 55,
-                borderRadius: 2,
-                border: "3px solid #b71c1c",
+                width: isMobile ? 44 : 55,
+                height: isMobile ? 64 : 55,
+                borderRadius: isMobile ? 1 : 2,
+                border: isMobile ? "2px solid #b71c1c" : "3px solid #b71c1c",
                 backgroundColor: "#fe5050",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 color: "#fff",
-                fontSize: 24,
+                fontSize: isMobile ? 18 : 24,
                 fontWeight: "bold",
               }}
             >
@@ -904,7 +917,7 @@ export default function PickManagementPage() {
       </Box>
 
       {/* 패턴 테이블 */}
-      <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", width: CONTENT_WIDTH }}>
+      <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", width: isMobile ? "100%" : CONTENT_WIDTH }}>
         {/* 테이블 헤더 - 고정 */}
         <Box
           sx={{
@@ -1013,12 +1026,6 @@ export default function PickManagementPage() {
         </Box>
       </Paper>
 
-      {/* 하단 안내 */}
-      <Box sx={{ mt: 1, flexShrink: 0 }}>
-        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-          * 번호 클릭 시 패턴이 격자에 표시됩니다. 코드 입력 후 "가져오기"로 특정 패턴을 불러올 수 있습니다.
-        </Typography>
-      </Box>
     </Box>
   );
 }

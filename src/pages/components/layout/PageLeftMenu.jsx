@@ -1,24 +1,22 @@
 import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 
-// 아이콘 import
 import InfoIcon from "@mui/icons-material/Info";
 import HomeIcon from "@mui/icons-material/Home";
-import CasinoIcon from "@mui/icons-material/Casino";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import ViewListIcon from "@mui/icons-material/ViewList";
 
 import { useNavigate } from "react-router-dom";
 
-function PageLeftMenu() {
+function PageLeftMenu({ isMobile, onMenuClose }) {
   const theme = useTheme();
   const navigate = useNavigate();
   const debugMode = true;
 
   const handleNavClick = (path) => {
     navigate(path);
-    if (isMobile && closeMobileMenu) {
-      closeMobileMenu();
+    if (isMobile && onMenuClose) {
+      onMenuClose();
     }
   };
 
@@ -31,18 +29,21 @@ function PageLeftMenu() {
         backgroundColor: theme.palette.background.leftMenu,
         "& .MuiListItemIcon-root": {
           color: "military.text",
+          minWidth: 40,
         },
         "& .MuiListItemText-primary": {
           color: "text.primary",
+          fontSize: isMobile ? "0.9rem" : "1rem",
         },
         "& .MuiListItemButton-root": {
+          py: isMobile ? 1 : 1.5,
           "&:hover": {
             backgroundColor: "military.hover",
           },
         },
       }}
     >
-      <List>
+      <List disablePadding>
         <ListItem disablePadding>
           <ListItemButton onClick={() => handleNavClick("/")}>
             <ListItemIcon>
@@ -76,13 +77,13 @@ function PageLeftMenu() {
               my: 1,
             }}
           />
-          <List>
+          <List disablePadding>
             <ListItem disablePadding>
               <ListItemButton onClick={() => handleNavClick("/pick-management")}>
                 <ListItemIcon>
                   <ViewListIcon />
                 </ListItemIcon>
-                <ListItemText primary="pick management" />
+                <ListItemText primary="Pick Mgmt" />
               </ListItemButton>
             </ListItem>
           </List>
