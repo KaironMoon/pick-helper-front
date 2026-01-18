@@ -2,6 +2,37 @@ import { useState, useEffect, useRef } from "react";
 import { Box, Typography, Paper, IconButton, TextField } from "@mui/material";
 import { ArrowBack, ArrowForward } from "@mui/icons-material";
 
+// 순회 순서: A1 → B1 → C1 → D1 → E1 → E2 → F1~F4 → G1~G8 → 1~16 → A1
+const FORMAT_SEQUENCE = [
+  "A1", "B1", "C1", "D1",
+  "E1", "E2",
+  "F1", "F2", "F3", "F4",
+  "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8",
+  "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"
+];
+
+// 각 code1별 패턴 정보
+const PATTERN_CONFIG = {
+  "A1": { length: 4, count: 16, offset: 0 },
+  "B1": { length: 5, count: 32, offset: 0 },
+  "C1": { length: 6, count: 64, offset: 0 },
+  "D1": { length: 7, count: 128, offset: 0 },
+  "E1": { length: 8, count: 128, offset: 0 },
+  "E2": { length: 8, count: 128, offset: 128 },
+  "F1": { length: 9, count: 128, offset: 0 },
+  "F2": { length: 9, count: 128, offset: 128 },
+  "F3": { length: 9, count: 128, offset: 256 },
+  "F4": { length: 9, count: 128, offset: 384 },
+  "G1": { length: 10, count: 128, offset: 0 },
+  "G2": { length: 10, count: 128, offset: 128 },
+  "G3": { length: 10, count: 128, offset: 256 },
+  "G4": { length: 10, count: 128, offset: 384 },
+  "G5": { length: 10, count: 128, offset: 512 },
+  "G6": { length: 10, count: 128, offset: 640 },
+  "G7": { length: 10, count: 128, offset: 768 },
+  "G8": { length: 10, count: 128, offset: 896 },
+};
+
 // 원 컴포넌트 (패턴 표시용)
 const Circle = ({ type, filled = true, size = 24 }) => {
   const colors = {
@@ -102,25 +133,45 @@ const PickCircle = ({ type, size = 24 }) => {
   );
 };
 
-// 패턴 생성 함수 (128개)
-// code1 (1~16): 상위 4비트, code2 (1~128): 하위 7비트
-const generatePatterns = (rangeNum) => {
+// 패턴 생성 함수
+// code1이 숫자(1~16)면 11자리 패턴, 문자열(A1~G8)이면 4~10자리 패턴
+const generatePatterns = (code1) => {
   const patterns = [];
-  // code1은 1-based, 상위 4비트 결정
-  const prefixBits = (rangeNum - 1).toString(2).padStart(4, '0');
-  const prefix = prefixBits.split('').map(b => b === '0' ? 'B' : 'P').join('');
 
-  for (let i = 0; i < 128; i++) {
-    // 하위 7비트
-    const suffixBits = i.toString(2).padStart(7, '0');
-    const suffix = suffixBits.split('').map(b => b === '0' ? 'B' : 'P').join('');
-    const patternStr = prefix + suffix;
-    patterns.push({
-      abbr: "",
-      code: `${rangeNum}-${i + 1}`,
-      pattern: patternStr,
-    });
+  // A1~G8 (4~10자리 패턴)
+  if (PATTERN_CONFIG[code1]) {
+    const config = PATTERN_CONFIG[code1];
+    for (let i = 0; i < config.count; i++) {
+      const patternIndex = config.offset + i;
+      const bits = patternIndex.toString(2).padStart(config.length, '0');
+      const patternStr = bits.split('').map(b => b === '0' ? 'B' : 'P').join('');
+      patterns.push({
+        abbr: "",
+        code: `${code1}-${i + 1}`,
+        pattern: patternStr,
+      });
+    }
+    return patterns;
   }
+
+  // 1~16 (11자리 패턴)
+  const rangeNum = parseInt(code1, 10);
+  if (!isNaN(rangeNum) && rangeNum >= 1 && rangeNum <= 16) {
+    const prefixBits = (rangeNum - 1).toString(2).padStart(4, '0');
+    const prefix = prefixBits.split('').map(b => b === '0' ? 'B' : 'P').join('');
+
+    for (let i = 0; i < 128; i++) {
+      const suffixBits = i.toString(2).padStart(7, '0');
+      const suffix = suffixBits.split('').map(b => b === '0' ? 'B' : 'P').join('');
+      const patternStr = prefix + suffix;
+      patterns.push({
+        abbr: "",
+        code: `${rangeNum}-${i + 1}`,
+        pattern: patternStr,
+      });
+    }
+  }
+
   return patterns;
 };
 
@@ -205,7 +256,7 @@ const calculateCircleGrid = (prevPicks, gridRows, gridCols, nextPicks = []) => {
 };
 
 export default function PickManagementPage() {
-  const [formatRange, setFormatRange] = useState(1); // 1-1~1-128, 2-1~2-128, etc.
+  const [formatRange, setFormatRange] = useState("A1"); // A1부터 시작
   const [fetchCode, setFetchCode] = useState("");
   const [selectedTab, setSelectedTab] = useState("1pick");
   const [patterns, setPatterns] = useState([]);
@@ -257,11 +308,15 @@ export default function PickManagementPage() {
   }, [scrollTargetCode, patterns]);
 
   const handlePrevFormat = () => {
-    setFormatRange(formatRange === 1 ? 16 : formatRange - 1);
+    const currentIndex = FORMAT_SEQUENCE.indexOf(String(formatRange));
+    const prevIndex = currentIndex <= 0 ? FORMAT_SEQUENCE.length - 1 : currentIndex - 1;
+    setFormatRange(FORMAT_SEQUENCE[prevIndex]);
   };
 
   const handleNextFormat = () => {
-    setFormatRange(formatRange === 16 ? 1 : formatRange + 1);
+    const currentIndex = FORMAT_SEQUENCE.indexOf(String(formatRange));
+    const nextIndex = currentIndex >= FORMAT_SEQUENCE.length - 1 ? 0 : currentIndex + 1;
+    setFormatRange(FORMAT_SEQUENCE[nextIndex]);
   };
 
   // 패턴 클릭 핸들러
@@ -287,18 +342,19 @@ export default function PickManagementPage() {
   const handleFetchByCode = async () => {
     if (!fetchCode) return;
 
-    // "1-29" 형식 파싱
+    // "A1-1" 또는 "1-29" 형식 파싱
     const parts = fetchCode.split("-");
     if (parts.length !== 2) {
-      alert("올바른 형식으로 입력해주세요 (예: 1-29)");
+      alert("올바른 형식으로 입력해주세요 (예: A1-1, 1-29)");
       return;
     }
 
-    const code1 = parseInt(parts[0], 10);
-    const code2 = parseInt(parts[1], 10);
+    const code1 = parts[0];
+    const code2 = parts[1];
 
-    if (isNaN(code1) || isNaN(code2)) {
-      alert("올바른 숫자를 입력해주세요");
+    // code1 유효성 검사
+    if (!FORMAT_SEQUENCE.includes(code1)) {
+      alert("올바른 code1을 입력해주세요 (A1~G8 또는 1~16)");
       return;
     }
 
@@ -342,9 +398,8 @@ export default function PickManagementPage() {
     const parts = fetchCode.split("-");
     if (parts.length !== 2) return;
 
-    const code1 = parseInt(parts[0], 10);
-    const code2 = parseInt(parts[1], 10);
-    if (isNaN(code1) || isNaN(code2)) return;
+    const code1 = parts[0];
+    const code2 = parts[1];
 
     try {
       const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
@@ -375,9 +430,8 @@ export default function PickManagementPage() {
     const parts = fetchCode.split("-");
     if (parts.length !== 2) return;
 
-    const code1 = parseInt(parts[0], 10);
-    const code2 = parseInt(parts[1], 10);
-    if (isNaN(code1) || isNaN(code2)) return;
+    const code1 = parts[0];
+    const code2 = parts[1];
 
     if (pickMode === 1) {
       // 1pick 모드
@@ -465,9 +519,8 @@ export default function PickManagementPage() {
     const parts = fetchCode.split("-");
     if (parts.length !== 2) return;
 
-    const code1 = parseInt(parts[0], 10);
-    const code2 = parseInt(parts[1], 10);
-    if (isNaN(code1) || isNaN(code2)) return;
+    const code1 = parts[0];
+    const code2 = parts[1];
 
     const fieldName = pickMode === 1 ? "next_pick_1" : pickMode === 3 ? "next_pick_3" : "next_pick_6";
 
@@ -842,7 +895,7 @@ export default function PickManagementPage() {
             textAlign: "center",
           }}
         >
-          <Typography variant="body2">{formatRange}-1~{formatRange}-128</Typography>
+          <Typography variant="body2">{formatRange}-1~{formatRange}-{PATTERN_CONFIG[formatRange]?.count || 128}</Typography>
         </Box>
         <IconButton size="small" onClick={handleNextFormat}>
           <ArrowForward />

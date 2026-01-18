@@ -78,14 +78,6 @@ function PageLeftMenu() {
           />
           <List>
             <ListItem disablePadding>
-              <ListItemButton onClick={() => handleNavClick("/picks")}>
-                <ListItemIcon>
-                  <CasinoIcon />
-                </ListItemIcon>
-                <ListItemText primary="pick입력" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
               <ListItemButton onClick={() => handleNavClick("/pick-management")}>
                 <ListItemIcon>
                   <ViewListIcon />
