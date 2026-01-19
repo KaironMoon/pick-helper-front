@@ -273,6 +273,7 @@ export default function PickManagementPage() {
   const rowRefs = useRef({}); // 행 refs
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isLandscape = useMediaQuery("(orientation: landscape)");
 
   // API에서 picks2 데이터 로드
   useEffect(() => {
@@ -574,12 +575,456 @@ export default function PickManagementPage() {
   // 전체 너비 계산: 격자(18*28 + 17gap + 2border) + gap(24) + 컨트롤영역
   const CONTENT_WIDTH = 850;
 
+  // 격자 컴포넌트 (데스크탑용)
+  const GridComponent = (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${GRID_COLS}, 28px)`,
+        gridTemplateRows: `repeat(${GRID_ROWS}, 28px)`,
+        gap: "1px",
+        backgroundColor: "#fff",
+        border: "1px solid #fff",
+        "& > div": {
+          backgroundColor: "background.default",
+        },
+      }}
+    >
+      {grid.map((row, rowIndex) =>
+        row.map((cell, colIndex) => (
+          <Box
+            key={`${rowIndex}-${colIndex}`}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {cell && <Circle type={cell.type} filled={cell.filled} size={24} />}
+          </Box>
+        ))
+      )}
+    </Box>
+  );
+
+  // 격자 컴포넌트 (모바일용 - 작은 사이즈)
+  const GridComponentSmall = (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${GRID_COLS}, 18px)`,
+        gridTemplateRows: `repeat(${GRID_ROWS}, 18px)`,
+        gap: "1px",
+        backgroundColor: "#fff",
+        border: "1px solid #fff",
+        "& > div": {
+          backgroundColor: "background.default",
+        },
+      }}
+    >
+      {grid.map((row, rowIndex) =>
+        row.map((cell, colIndex) => (
+          <Box
+            key={`${rowIndex}-${colIndex}`}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {cell && <Circle type={cell.type} filled={cell.filled} size={16} />}
+          </Box>
+        ))
+      )}
+    </Box>
+  );
+
+  // 모바일 가로 레이아웃 (2컬럼)
+  if (isMobile && isLandscape) {
+    return (
+      <Box sx={{ p: 1, height: "100%", display: "flex", gap: 1, overflow: "hidden" }}>
+        {/* 좌측: 격자 + 입력 - 고정 너비 */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, flexShrink: 0, alignItems: "flex-start", width: 400, overflow: "hidden" }}>
+          {/* 격자 */}
+          {GridComponentSmall}
+          {/* 입력 컨트롤 - 3픽 기준 높이 고정 */}
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, alignItems: "center", minHeight: 56 }}>
+            {/* P/B 버튼 */}
+            {pickMode === 6 ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                {[0, 3].map((rowStart) => (
+                  <Box key={rowStart} sx={{ display: "flex", gap: 0.5 }}>
+                    {[0, 1, 2].map((offset) => {
+                      const idx = rowStart + offset;
+                      const currentValue = currentPick6[idx];
+                      return (
+                        <Box key={idx} sx={{ display: "flex", gap: 0.25 }}>
+                          <Box
+                            onClick={() => handlePickClick("P", idx)}
+                            sx={{
+                              width: 28, height: 28, borderRadius: 0.5,
+                              backgroundColor: currentValue === "P" ? "#1565c0" : "#9e9e9e",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: "#fff", fontSize: 11, fontWeight: "bold",
+                              cursor: fetchCode ? "pointer" : "default",
+                              opacity: fetchCode ? 1 : 0.5,
+                            }}
+                          >P</Box>
+                          <Box
+                            onClick={() => handlePickClick("B", idx)}
+                            sx={{
+                              width: 28, height: 28, borderRadius: 0.5,
+                              backgroundColor: currentValue === "B" ? "#f44336" : "#9e9e9e",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: "#fff", fontSize: 11, fontWeight: "bold",
+                              cursor: fetchCode ? "pointer" : "default",
+                              opacity: fetchCode ? 1 : 0.5,
+                            }}
+                          >B</Box>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                ))}
+              </Box>
+            ) : pickMode === 3 ? (
+              <Box sx={{ display: "flex", gap: 0.5 }}>
+                {Array.from({ length: 3 }).map((_, idx) => {
+                  const currentValue = currentPick3[idx];
+                  return (
+                    <Box key={idx} sx={{ display: "flex", gap: 0.25 }}>
+                      <Box
+                        onClick={() => handlePickClick("P", idx)}
+                        sx={{
+                          width: 36, height: 56, borderRadius: 1,
+                          backgroundColor: currentValue === "P" ? "#1565c0" : "#9e9e9e",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#fff", fontSize: 14, fontWeight: "bold",
+                          cursor: fetchCode ? "pointer" : "default",
+                          opacity: fetchCode ? 1 : 0.5,
+                        }}
+                      >P</Box>
+                      <Box
+                        onClick={() => handlePickClick("B", idx)}
+                        sx={{
+                          width: 36, height: 56, borderRadius: 1,
+                          backgroundColor: currentValue === "B" ? "#f44336" : "#9e9e9e",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#fff", fontSize: 14, fontWeight: "bold",
+                          cursor: fetchCode ? "pointer" : "default",
+                          opacity: fetchCode ? 1 : 0.5,
+                        }}
+                      >B</Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            ) : (
+              <Box sx={{ display: "flex", gap: 0.5 }}>
+                <Box
+                  onClick={() => handlePickClick("P", 0)}
+                  sx={{
+                    width: 56, height: 56, borderRadius: 1,
+                    backgroundColor: currentPick1 === "P" ? "#1565c0" : "#9e9e9e",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#fff", fontSize: 18, fontWeight: "bold",
+                    cursor: fetchCode ? "pointer" : "default",
+                    opacity: fetchCode ? 1 : 0.5,
+                  }}
+                >P</Box>
+                <Box
+                  onClick={() => handlePickClick("B", 0)}
+                  sx={{
+                    width: 56, height: 56, borderRadius: 1,
+                    backgroundColor: currentPick1 === "B" ? "#f44336" : "#9e9e9e",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#fff", fontSize: 18, fontWeight: "bold",
+                    cursor: fetchCode ? "pointer" : "default",
+                    opacity: fetchCode ? 1 : 0.5,
+                  }}
+                >B</Box>
+              </Box>
+            )}
+            {/* 삭제 */}
+            <Box
+              onClick={handleDeletePick}
+              sx={{
+                px: 1, height: 56,
+                border: "1px solid rgba(255,255,255,0.5)",
+                borderRadius: 1,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: fetchCode ? "pointer" : "default",
+                opacity: fetchCode ? 1 : 0.5,
+              }}
+            >
+              <Typography sx={{ fontSize: 12 }}>삭제</Typography>
+            </Box>
+            {/* 코드 입력 + 가져오기 */}
+            <TextField
+              size="small"
+              placeholder="1-1"
+              value={fetchCode}
+              onChange={(e) => setFetchCode(e.target.value)}
+              sx={{
+                width: 60,
+                "& .MuiOutlinedInput-root": {
+                  height: 36,
+                  "& fieldset": { borderColor: "#1565c0" },
+                },
+                "& .MuiInputBase-input": { textAlign: "center", fontSize: 14, p: 0.5 },
+              }}
+            />
+            <Box
+              onClick={handleFetchByCode}
+              sx={{
+                height: 36, px: 1,
+                border: "1px solid #4caf50",
+                borderRadius: 1,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              <Typography sx={{ fontSize: 11 }}>가져오기</Typography>
+            </Box>
+            {/* DL */}
+            <TextField
+              size="small"
+              placeholder="DL"
+              value={dlNickname}
+              onChange={(e) => setDlNickname(e.target.value)}
+              onBlur={handleDlBlur}
+              sx={{
+                width: 45,
+                "& .MuiOutlinedInput-root": {
+                  height: 36,
+                  "& fieldset": { borderColor: "rgba(255,255,255,0.5)" },
+                },
+                "& .MuiInputBase-input": { textAlign: "center", fontSize: 11, p: 0.5 },
+              }}
+            />
+          </Box>
+          {/* P/B 퍼센트 */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Box sx={{ width: 32, height: 32, borderRadius: 1, border: "2px solid #0d47a1", backgroundColor: "#3399fe", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold" }}>P</Box>
+            <Box sx={{ display: "flex", width: 80 }}>
+              <Box sx={{ flex: 1, height: 32, backgroundColor: "#3399fe", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Typography sx={{ color: "#fff", fontSize: 11 }}>-%</Typography>
+              </Box>
+              <Box sx={{ flex: 1, height: 32, backgroundColor: "#fe5050", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Typography sx={{ color: "#fff", fontSize: 11 }}>-%</Typography>
+              </Box>
+            </Box>
+            <Box sx={{ width: 32, height: 32, borderRadius: 1, border: "2px solid #b71c1c", backgroundColor: "#fe5050", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold" }}>B</Box>
+          </Box>
+        </Box>
+
+        {/* 우측: 테이블 */}
+        <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, maxWidth: 480, marginLeft: "auto" }}>
+          {/* 서식 범위 선택 */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
+            <IconButton size="small" onClick={handlePrevFormat}><ArrowBack sx={{ fontSize: 18 }} /></IconButton>
+            <Box sx={{ border: "1px solid rgba(255,255,255,0.3)", borderRadius: 1, px: 1, py: 0.25 }}>
+              <Typography variant="caption">{formatRange}-1~{formatRange}-{PATTERN_CONFIG[formatRange]?.count || 128}</Typography>
+            </Box>
+            <IconButton size="small" onClick={handleNextFormat}><ArrowForward sx={{ fontSize: 18 }} /></IconButton>
+          </Box>
+          <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          {/* 테이블 헤더 */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, p: 0.5, borderBottom: "1px solid rgba(255,255,255,0.2)", backgroundColor: "rgba(255,255,255,0.05)" }}>
+            <Typography variant="caption" sx={{ width: 30, textAlign: "center", fontSize: 10 }}>약칭</Typography>
+            <Typography variant="caption" sx={{ width: 45, textAlign: "center", fontSize: 10 }}>번호</Typography>
+            <Typography variant="caption" sx={{ flex: 1, fontSize: 10 }}>패턴</Typography>
+            {/* 탭 버튼 */}
+            <Box sx={{ display: "flex", gap: 0.25 }}>
+              {["1pick", "3pick", "6pick"].map((tab) => (
+                <Box
+                  key={tab}
+                  onClick={() => { setSelectedTab(tab); setPickMode(tab === "1pick" ? 1 : tab === "3pick" ? 3 : 6); }}
+                  sx={{
+                    px: 0.5, py: 0.25, borderRadius: 0.5, fontSize: 9,
+                    border: selectedTab === tab ? "1px solid #4caf50" : "1px solid transparent",
+                    color: selectedTab === tab ? "#4caf50" : "text.secondary",
+                    cursor: "pointer",
+                  }}
+                >
+                  {tab}
+                </Box>
+              ))}
+            </Box>
+          </Box>
+          {/* 테이블 바디 */}
+          <Box sx={{ flex: 1, overflow: "auto" }}>
+            {patterns.map((pattern, index) => {
+              const code = `${formatRange}-${pattern.code2}`;
+              return (
+                <Box
+                  key={index}
+                  ref={(el) => { if (el) rowRefs.current[code] = el; }}
+                  onClick={() => handlePatternClick(pattern)}
+                  sx={{
+                    display: "flex", alignItems: "center", gap: 0.5, p: 0.5,
+                    borderBottom: "1px solid rgba(255,255,255,0.1)",
+                    backgroundColor: scrollTargetCode === code ? "rgba(76,175,80,0.2)" : (selectedPattern?.code2 === pattern.code2 ? "rgba(255,255,255,0.1)" : "transparent"),
+                    cursor: "pointer",
+                    "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" },
+                  }}
+                >
+                  <Typography variant="caption" sx={{ width: 30, textAlign: "center", fontSize: 10, color: pattern.nickname ? "#4caf50" : "text.secondary" }}>
+                    {pattern.nickname || "-"}
+                  </Typography>
+                  <Typography variant="caption" sx={{ width: 45, textAlign: "center", fontSize: 10 }}>{code}</Typography>
+                  <Box sx={{ display: "flex", gap: "2px", flex: 1 }}>
+                    {pattern.prev_picks?.split("").map((char, i) => (
+                      <Circle key={i} type={char} filled={true} size={14} />
+                    ))}
+                  </Box>
+                  {/* Pick 표시 */}
+                  <Box sx={{ display: "flex", gap: "2px" }}>
+                    {selectedTab === "1pick" && (
+                      <Circle type={pattern.next_pick_1} filled={!!pattern.next_pick_1} size={14} />
+                    )}
+                    {selectedTab === "3pick" && (
+                      <>
+                        {(pattern.next_pick_3 || "").split("").map((char, i) => (
+                          <Circle key={i} type={char} filled={!!char} size={14} />
+                        ))}
+                        {Array.from({ length: 3 - (pattern.next_pick_3?.length || 0) }).map((_, i) => (
+                          <Circle key={`empty-${i}`} type={null} filled={false} size={14} />
+                        ))}
+                      </>
+                    )}
+                    {selectedTab === "6pick" && (
+                      <>
+                        {(pattern.next_pick_6 || "").split("").map((char, i) => (
+                          <Circle key={i} type={char} filled={!!char} size={14} />
+                        ))}
+                        {Array.from({ length: 6 - (pattern.next_pick_6?.length || 0) }).map((_, i) => (
+                          <Circle key={`empty-${i}`} type={null} filled={false} size={14} />
+                        ))}
+                      </>
+                    )}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </Paper>
+        </Box>
+      </Box>
+    );
+  }
+
+  // 모바일 세로 레이아웃
+  if (isMobile && !isLandscape) {
+    return (
+      <Box sx={{ p: 1, height: "100%", display: "flex", flexDirection: "column", gap: 1, overflow: "auto", alignItems: "flex-start" }}>
+        {/* 격자 */}
+        {GridComponentSmall}
+        {/* 입력 컨트롤 - 가로 배치 */}
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, alignItems: "center" }}>
+          {/* P/B 버튼 */}
+          {pickMode === 6 ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+              {[0, 3].map((rowStart) => (
+                <Box key={rowStart} sx={{ display: "flex", gap: 0.5 }}>
+                  {[0, 1, 2].map((offset) => {
+                    const idx = rowStart + offset;
+                    const currentValue = currentPick6[idx];
+                    return (
+                      <Box key={idx} sx={{ display: "flex", gap: 0.25 }}>
+                        <Box onClick={() => handlePickClick("P", idx)} sx={{ width: 40, height: 40, borderRadius: 0.5, backgroundColor: currentValue === "P" ? "#1565c0" : "#9e9e9e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>P</Box>
+                        <Box onClick={() => handlePickClick("B", idx)} sx={{ width: 40, height: 40, borderRadius: 0.5, backgroundColor: currentValue === "B" ? "#f44336" : "#9e9e9e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>B</Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              ))}
+            </Box>
+          ) : pickMode === 3 ? (
+            <Box sx={{ display: "flex", gap: 0.5 }}>
+              {Array.from({ length: 3 }).map((_, idx) => {
+                const currentValue = currentPick3[idx];
+                return (
+                  <Box key={idx} sx={{ display: "flex", gap: 0.25 }}>
+                    <Box onClick={() => handlePickClick("P", idx)} sx={{ width: 44, height: 56, borderRadius: 1, backgroundColor: currentValue === "P" ? "#1565c0" : "#9e9e9e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, fontWeight: "bold", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>P</Box>
+                    <Box onClick={() => handlePickClick("B", idx)} sx={{ width: 44, height: 56, borderRadius: 1, backgroundColor: currentValue === "B" ? "#f44336" : "#9e9e9e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, fontWeight: "bold", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>B</Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          ) : (
+            <Box sx={{ display: "flex", gap: 0.5 }}>
+              <Box onClick={() => handlePickClick("P", 0)} sx={{ width: 56, height: 56, borderRadius: 1, backgroundColor: currentPick1 === "P" ? "#1565c0" : "#9e9e9e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: "bold", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>P</Box>
+              <Box onClick={() => handlePickClick("B", 0)} sx={{ width: 56, height: 56, borderRadius: 1, backgroundColor: currentPick1 === "B" ? "#f44336" : "#9e9e9e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: "bold", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>B</Box>
+            </Box>
+          )}
+          <Box onClick={handleDeletePick} sx={{ px: 1.5, height: 56, border: "1px solid rgba(255,255,255,0.5)", borderRadius: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>
+            <Typography sx={{ fontSize: 13 }}>삭제</Typography>
+          </Box>
+          <TextField size="small" placeholder="1-1" value={fetchCode} onChange={(e) => setFetchCode(e.target.value)} sx={{ width: 70, "& .MuiOutlinedInput-root": { height: 44, "& fieldset": { borderColor: "#1565c0" } }, "& .MuiInputBase-input": { textAlign: "center", fontSize: 16, p: 0.5 } }} />
+          <Box onClick={handleFetchByCode} sx={{ height: 44, px: 1.5, border: "1px solid #4caf50", borderRadius: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <Typography sx={{ fontSize: 13 }}>가져오기</Typography>
+          </Box>
+          <TextField size="small" placeholder="DL" value={dlNickname} onChange={(e) => setDlNickname(e.target.value)} onBlur={handleDlBlur} sx={{ width: 55, "& .MuiOutlinedInput-root": { height: 44, "& fieldset": { borderColor: "rgba(255,255,255,0.5)" } }, "& .MuiInputBase-input": { textAlign: "center", fontSize: 13, p: 0.5 } }} />
+          {/* P/B 퍼센트 */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Box sx={{ width: 36, height: 36, borderRadius: 1, border: "2px solid #0d47a1", backgroundColor: "#3399fe", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold" }}>P</Box>
+            <Box sx={{ display: "flex", width: 80 }}>
+              <Box sx={{ flex: 1, height: 36, backgroundColor: "#3399fe", display: "flex", alignItems: "center", justifyContent: "center" }}><Typography sx={{ color: "#fff", fontSize: 12 }}>-%</Typography></Box>
+              <Box sx={{ flex: 1, height: 36, backgroundColor: "#fe5050", display: "flex", alignItems: "center", justifyContent: "center" }}><Typography sx={{ color: "#fff", fontSize: 12 }}>-%</Typography></Box>
+            </Box>
+            <Box sx={{ width: 36, height: 36, borderRadius: 1, border: "2px solid #b71c1c", backgroundColor: "#fe5050", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold" }}>B</Box>
+          </Box>
+        </Box>
+        {/* 서식 범위 선택 */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <IconButton size="small" onClick={handlePrevFormat}><ArrowBack sx={{ fontSize: 20 }} /></IconButton>
+          <Box sx={{ border: "1px solid rgba(255,255,255,0.3)", borderRadius: 1, px: 1.5, py: 0.5 }}>
+            <Typography variant="body2">{formatRange}-1~{formatRange}-{PATTERN_CONFIG[formatRange]?.count || 128}</Typography>
+          </Box>
+          <IconButton size="small" onClick={handleNextFormat}><ArrowForward sx={{ fontSize: 20 }} /></IconButton>
+        </Box>
+        {/* 테이블 */}
+        <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", display: "flex", flexDirection: "column", alignSelf: "stretch" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, p: 0.5, borderBottom: "1px solid rgba(255,255,255,0.2)", backgroundColor: "rgba(255,255,255,0.05)" }}>
+            <Typography variant="caption" sx={{ width: 35, textAlign: "center", fontSize: 11 }}>약칭</Typography>
+            <Typography variant="caption" sx={{ width: 50, textAlign: "center", fontSize: 11 }}>번호</Typography>
+            <Typography variant="caption" sx={{ flex: 1, fontSize: 11 }}>패턴</Typography>
+            <Box sx={{ display: "flex", gap: 0.5 }}>
+              {["1pick", "3pick", "6pick"].map((tab) => (
+                <Box key={tab} onClick={() => { setSelectedTab(tab); setPickMode(tab === "1pick" ? 1 : tab === "3pick" ? 3 : 6); }} sx={{ px: 0.75, py: 0.25, borderRadius: 0.5, fontSize: 10, border: selectedTab === tab ? "1px solid #4caf50" : "1px solid transparent", color: selectedTab === tab ? "#4caf50" : "text.secondary", cursor: "pointer" }}>{tab}</Box>
+              ))}
+            </Box>
+          </Box>
+          <Box sx={{ flex: 1, overflow: "auto" }}>
+            {patterns.map((pattern, index) => {
+              const code = `${formatRange}-${pattern.code2}`;
+              return (
+                <Box key={index} ref={(el) => { if (el) rowRefs.current[code] = el; }} onClick={() => handlePatternClick(pattern)} sx={{ display: "flex", alignItems: "center", gap: 0.5, p: 0.5, borderBottom: "1px solid rgba(255,255,255,0.1)", backgroundColor: scrollTargetCode === code ? "rgba(76,175,80,0.2)" : (selectedPattern?.code2 === pattern.code2 ? "rgba(255,255,255,0.1)" : "transparent"), cursor: "pointer", "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" } }}>
+                  <Typography variant="caption" sx={{ width: 35, textAlign: "center", fontSize: 11, color: pattern.nickname ? "#4caf50" : "text.secondary" }}>{pattern.nickname || "-"}</Typography>
+                  <Typography variant="caption" sx={{ width: 50, textAlign: "center", fontSize: 11 }}>{code}</Typography>
+                  <Box sx={{ display: "flex", gap: "2px", flex: 1 }}>{pattern.prev_picks?.split("").map((char, i) => (<Circle key={i} type={char} filled={true} size={16} />))}</Box>
+                  <Box sx={{ display: "flex", gap: "2px" }}>
+                    {selectedTab === "1pick" && <Circle type={pattern.next_pick_1} filled={!!pattern.next_pick_1} size={16} />}
+                    {selectedTab === "3pick" && (<>{(pattern.next_pick_3 || "").split("").map((char, i) => (<Circle key={i} type={char} filled={!!char} size={16} />))}{Array.from({ length: 3 - (pattern.next_pick_3?.length || 0) }).map((_, i) => (<Circle key={`empty-${i}`} type={null} filled={false} size={16} />))}</>)}
+                    {selectedTab === "6pick" && (<>{(pattern.next_pick_6 || "").split("").map((char, i) => (<Circle key={i} type={char} filled={!!char} size={16} />))}{Array.from({ length: 6 - (pattern.next_pick_6?.length || 0) }).map((_, i) => (<Circle key={`empty-${i}`} type={null} filled={false} size={16} />))}</>)}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </Paper>
+      </Box>
+    );
+  }
+
+  // 데스크탑 레이아웃
   return (
-    <Box sx={{ p: isMobile ? 1 : 2, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <Box sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* 상단 영역 */}
-      <Box sx={{ flexShrink: 0, width: isMobile ? "100%" : CONTENT_WIDTH }}>
+      <Box sx={{ flexShrink: 0, width: CONTENT_WIDTH }}>
       {/* 격자 + 입력 컨트롤 */}
-      <Box sx={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 1 : 3, mb: 2, alignItems: isMobile ? "flex-start" : "stretch" }}>
+      <Box sx={{ display: "flex", gap: 3, mb: 2, alignItems: "stretch" }}>
         {/* 좌측: 격자 (18x6) */}
         <Box
           sx={{
@@ -613,16 +1058,16 @@ export default function PickManagementPage() {
         {/* 우측: 입력 컨트롤 */}
         <Box sx={{
           display: "flex",
-          flexDirection: isMobile ? "row" : "column",
-          justifyContent: isMobile ? "flex-start" : "space-between",
-          alignItems: isMobile ? "center" : "stretch",
-          gap: isMobile ? 1 : 0,
-          height: isMobile ? "auto" : "100%",
-          width: isMobile ? "100%" : 300,
-          flexWrap: isMobile ? "wrap" : "nowrap",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          alignItems: "stretch",
+          gap: 0,
+          height: "100%",
+          width: 300,
+          flexWrap: "nowrap",
         }}>
           {/* 상단: Row 1 + Row 2 */}
-          <Box sx={{ display: "flex", flexDirection: isMobile ? "row" : "column", gap: isMobile ? 1 : 2, alignItems: "center" }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center" }}>
             {/* Row 1: P/B 버튼들 + 삭제 */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
             {/* P/B 버튼 세트들 */}
@@ -917,7 +1362,7 @@ export default function PickManagementPage() {
       </Box>
 
       {/* 패턴 테이블 */}
-      <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", width: isMobile ? "100%" : CONTENT_WIDTH }}>
+      <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", flex: isMobile ? "none" : 1, display: "flex", flexDirection: "column", width: isMobile ? "100%" : CONTENT_WIDTH }}>
         {/* 테이블 헤더 - 고정 */}
         <Box
           sx={{
