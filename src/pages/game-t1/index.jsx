@@ -1,13 +1,13 @@
 import { useState, useCallback } from "react";
-import { Box, Typography, Paper } from "@mui/material";
+import { Box, Typography, Paper, useMediaQuery, useTheme } from "@mui/material";
 import { saveGameV2 } from "@/services/game-services";
 import { getPick2ByPattern } from "@/services/picks-services";
 
 const GRID_ROWS = 6;
-const GRID_COLS = 32;
+const GRID_COLS = 42;
 
 // 원 컴포넌트
-const Circle = ({ type, filled = true }) => {
+const Circle = ({ type, filled = true, size = 24 }) => {
   const colors = {
     P: "#1565c0",
     B: "#f44336",
@@ -16,15 +16,16 @@ const Circle = ({ type, filled = true }) => {
   return (
     <Box
       sx={{
-        width: 24,
-        height: 24,
+        width: size,
+        height: size,
         borderRadius: "50%",
         backgroundColor: filled ? colors[type] : "#fff",
-        border: `3px solid ${colors[type]}`,
+        border: "3px solid",
+        borderColor: colors[type],
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: 12,
+        fontSize: size * 0.5,
         fontWeight: "bold",
         color: filled ? "#fff" : colors[type],
       }}
@@ -118,13 +119,16 @@ const calculateCircleGrid = (results, nextPicks = []) => {
 };
 
 export default function GameT1Page() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
   const [results, setResults] = useState([]);
-  const [selectedInput, setSelectedInput] = useState(null); // "P" or "B"
   const [currentPick, setCurrentPick] = useState(null); // 시스템이 제공한 픽 (1pick용)
   const [currentPick3, setCurrentPick3] = useState([]); // 3pick 배열
   const [currentPick6, setCurrentPick6] = useState([]); // 6pick 배열
   const [currentPicksSeq, setCurrentPicksSeq] = useState(null); // 매칭된 picks2_seq
   const [currentPickCode, setCurrentPickCode] = useState(null); // pick_code (예: "1-29")
+  const [currentNickname, setCurrentNickname] = useState(null); // 약칭
   const [pickMode, setPickMode] = useState(1); // 1, 3, 6
   const [predictOrder, setPredictOrder] = useState(0); // 3pick/6pick에서 현재 순서 (0, 1, 2 또는 0~5)
 
@@ -138,6 +142,7 @@ export default function GameT1Page() {
       setCurrentPick6([]);
       setCurrentPicksSeq(null);
       setCurrentPickCode(null);
+      setCurrentNickname(null);
       return;
     }
     try {
@@ -145,6 +150,7 @@ export default function GameT1Page() {
       const pickCode = `${response.data.code1}-${response.data.code2}`;
       setCurrentPicksSeq(response.data.picks2_seq);
       setCurrentPickCode(pickCode);
+      setCurrentNickname(response.data.nickname || null);
 
       // 1pick
       setCurrentPick(response.data.next_pick_1 || null);
@@ -159,12 +165,9 @@ export default function GameT1Page() {
       setCurrentPick6([]);
       setCurrentPicksSeq(null);
       setCurrentPickCode(null);
+      setCurrentNickname(null);
     }
   }, []);
-
-  const handleInputSelect = (value) => {
-    setSelectedInput(value);
-  };
 
   // 현재 모드에 따른 예측 픽 가져오기 (predictOrder 반영)
   const getCurrentPredict = () => {
@@ -182,9 +185,7 @@ export default function GameT1Page() {
     return [];
   };
 
-  const handleEnter = () => {
-    if (!selectedInput) return;
-
+  const handleInput = (inputValue) => {
     // prev_picks 계산 (현재 결과들에서 마지막 11개)
     const allValues = results.map(r => r.value);
     const prevPicks = allValues.length >= 11
@@ -193,16 +194,17 @@ export default function GameT1Page() {
 
     const predict = getCurrentPredict();
     const predictType = predict ? `${pickMode}pick` : null;
-    const isCorrect = predict ? predict === selectedInput : null;
+    const isCorrect = predict ? predict === inputValue : null;
 
     const newResult = {
-      value: selectedInput,
-      result: selectedInput,
+      value: inputValue,
+      result: inputValue,
       isCorrect: isCorrect,
       predict: predict,
       picks_seq: currentPicksSeq,
       prev_picks: prevPicks,
       pick_code: currentPickCode,
+      nickname: currentNickname,
       predict_type: predictType,
       predict_order: predict ? predictOrder + 1 : null, // 1-based로 저장
       // 삭제 시 복원을 위해 현재 picks 상태 저장
@@ -212,12 +214,12 @@ export default function GameT1Page() {
         pick6: [...currentPick6],
         picksSeq: currentPicksSeq,
         pickCode: currentPickCode,
+        nickname: currentNickname,
       },
     };
 
     const newResults = [...results, newResult];
     setResults(newResults);
-    setSelectedInput(null);
 
     // 맞았고 multi-pick 모드이면서 다음 순서가 남아있으면 순서만 증가
     const maxOrder = pickMode === 3 ? 2 : pickMode === 6 ? 5 : 0;
@@ -250,6 +252,7 @@ export default function GameT1Page() {
         setCurrentPick6(saved.pick6);
         setCurrentPicksSeq(saved.picksSeq);
         setCurrentPickCode(saved.pickCode);
+        setCurrentNickname(saved.nickname);
       }
 
       // predictOrder 복원: 삭제된 턴이 사용한 order의 이전 값
@@ -269,7 +272,7 @@ export default function GameT1Page() {
     setCurrentPick6([]);
     setCurrentPicksSeq(null);
     setCurrentPickCode(null);
-    setSelectedInput(null);
+    setCurrentNickname(null);
     setPredictOrder(0);
   };
 
@@ -286,6 +289,7 @@ export default function GameT1Page() {
       predict_type: r.predict_type || null,
       predict_order: r.predict_order || null,
       pick_code: r.pick_code || null,
+      nickname: r.nickname || null,
     }));
 
     try {
@@ -300,8 +304,8 @@ export default function GameT1Page() {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Save Data 버튼 */}
-      <Box sx={{ mb: 2 }}>
+      {/* Save Data 버튼 - 데스크톱만 */}
+      <Box sx={{ mb: 2, display: { xs: "none", md: "block" } }}>
         <Box
           onClick={results.length > 0 ? handleSaveData : undefined}
           sx={{
@@ -330,8 +334,14 @@ export default function GameT1Page() {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: `repeat(${GRID_COLS}, 28px)`,
-          gridTemplateRows: `repeat(${GRID_ROWS}, 28px)`,
+          gridTemplateColumns: {
+            xs: `repeat(${GRID_COLS}, 18px)`,
+            md: `repeat(${GRID_COLS}, 28px)`,
+          },
+          gridTemplateRows: {
+            xs: `repeat(${GRID_ROWS}, 18px)`,
+            md: `repeat(${GRID_ROWS}, 28px)`,
+          },
           gap: "1px",
           mb: 3,
           p: 0,
@@ -353,16 +363,203 @@ export default function GameT1Page() {
                 justifyContent: "center",
               }}
             >
-              {cell && <Circle type={cell.type} filled={cell.filled} />}
+              {cell && <Circle type={cell.type} filled={cell.filled} size={isMobile ? 14 : 24} />}
             </Box>
           ))
         )}
       </Box>
 
+      {/* 모바일 - 한줄 입력 영역 */}
+      <Box
+        sx={{
+          display: { xs: "flex", md: "none" },
+          alignItems: "center",
+          gap: 0.5,
+          mb: 2,
+          flexWrap: "wrap",
+        }}
+      >
+        {/* 1, 3, 6 버튼 */}
+        {[1, 3, 6].map((n) => (
+          <Box
+            key={n}
+            onClick={() => { setPickMode(n); setPredictOrder(0); }}
+            sx={{
+              width: 32,
+              height: 32,
+              border: pickMode === n ? "2px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+              backgroundColor: pickMode === n ? "#4caf50" : "background.paper",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              fontWeight: pickMode === n ? "bold" : "normal",
+              cursor: "pointer",
+              color: pickMode === n ? "#fff" : "text.primary",
+              borderRadius: 1,
+            }}
+          >
+            {n}
+          </Box>
+        ))}
+
+        {/* 예상 픽 (없으면 빈칸) */}
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: 1,
+            backgroundColor: "#fff",
+            border: getCurrentPredict()
+              ? `3px solid ${getCurrentPredict() === "P" ? "#1565c0" : "#f44336"}`
+              : "1px solid rgba(255,255,255,0.3)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: getCurrentPredict() === "P" ? "#1565c0" : "#f44336",
+            fontSize: 14,
+            fontWeight: "bold",
+          }}
+        >
+          {getCurrentPredict() || ""}
+        </Box>
+
+        {/* turn 번호 */}
+        <Box
+          sx={{
+            minWidth: 32,
+            height: 32,
+            px: 1,
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: 1,
+            backgroundColor: "background.paper",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Typography variant="body2" sx={{ fontSize: 12 }}>{currentTurn}</Typography>
+        </Box>
+
+        {/* P 버튼 */}
+        <Box
+          onClick={() => handleInput("P")}
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: 1,
+            backgroundColor: "#1565c0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#fff",
+            fontSize: 16,
+            fontWeight: "bold",
+            cursor: "pointer",
+            "&:active": { transform: "scale(0.95)" },
+          }}
+        >
+          P
+        </Box>
+
+        {/* B 버튼 */}
+        <Box
+          onClick={() => handleInput("B")}
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: 1,
+            backgroundColor: "#f44336",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#fff",
+            fontSize: 16,
+            fontWeight: "bold",
+            cursor: "pointer",
+            "&:active": { transform: "scale(0.95)" },
+          }}
+        >
+          B
+        </Box>
+
+        {/* delete 라벨 */}
+        <Box
+          sx={{
+            height: 32,
+            display: "flex",
+            alignItems: "center",
+            ml: 0.5,
+          }}
+        >
+          <Typography variant="body2" sx={{ fontSize: 11, color: "text.secondary" }}>
+            del
+          </Typography>
+        </Box>
+
+        {/* one by one */}
+        <Box
+          onClick={results.length > 0 ? handleDeleteOne : undefined}
+          sx={{
+            height: 32,
+            px: 1,
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: 1,
+            backgroundColor: "background.paper",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: results.length > 0 ? "pointer" : "default",
+            opacity: results.length > 0 ? 1 : 0.5,
+          }}
+        >
+          <Typography variant="body2" sx={{ fontSize: 11 }}>one</Typography>
+        </Box>
+
+        {/* whole */}
+        <Box
+          onClick={results.length > 0 ? handleDeleteWhole : undefined}
+          sx={{
+            height: 32,
+            px: 1,
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: 1,
+            backgroundColor: "background.paper",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: results.length > 0 ? "pointer" : "default",
+            opacity: results.length > 0 ? 1 : 0.5,
+          }}
+        >
+          <Typography variant="body2" sx={{ fontSize: 11 }}>all</Typography>
+        </Box>
+
+        {/* Save 버튼 */}
+        <Box
+          onClick={results.length > 0 ? handleSaveData : undefined}
+          sx={{
+            height: 32,
+            px: 1.5,
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: 1,
+            backgroundColor: "background.paper",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: results.length > 0 ? "pointer" : "default",
+            opacity: results.length > 0 ? 1 : 0.5,
+            ml: "auto",
+          }}
+        >
+          <Typography variant="body2" sx={{ fontSize: 11 }}>save</Typography>
+        </Box>
+      </Box>
+
       {/* 하단 - 입력 영역 */}
-      <Box sx={{ display: "flex", gap: 3, width: 928 }}>
-        {/* 픽 표시 영역 */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+      <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: { xs: 2, md: 3 }, width: { xs: "100%", md: 928 } }}>
+        {/* 픽 표시 영역 - 데스크톱만 */}
+        <Box sx={{ display: { xs: "none", md: "flex" }, flexDirection: "column", gap: 1 }}>
           {/* pick 라벨 */}
           <Box
             sx={{
@@ -423,8 +620,8 @@ export default function GameT1Page() {
           {/* 예측 픽 표시 영역 */}
           <Box
             sx={{
-              width: 100,
-              height: 80,
+              width: { xs: 80, md: 100 },
+              height: { xs: 60, md: 80 },
               border: "1px solid rgba(255,255,255,0.3)",
               borderRadius: 2,
               backgroundColor: "background.paper",
@@ -436,8 +633,8 @@ export default function GameT1Page() {
             {getCurrentPredict() && (
               <Box
                 sx={{
-                  width: 50,
-                  height: 50,
+                  width: { xs: 36, md: 50 },
+                  height: { xs: 36, md: 50 },
                   borderRadius: 2,
                   backgroundColor: getCurrentPredict() === "P" ? "#1565c0" : "#f44336",
                   border: `3px solid ${getCurrentPredict() === "P" ? "#1565c0" : "#f44336"}`,
@@ -445,7 +642,7 @@ export default function GameT1Page() {
                   alignItems: "center",
                   justifyContent: "center",
                   color: "#fff",
-                  fontSize: 24,
+                  fontSize: { xs: 18, md: 24 },
                   fontWeight: "bold",
                 }}
               >
@@ -456,15 +653,31 @@ export default function GameT1Page() {
         </Box>
 
         {/* 숫자 격자 - 진행된 턴까지만 표시 (세로 6개 → 가로 이동) */}
-        <Paper sx={{ p: 2, backgroundColor: "background.paper", flexGrow: 1 }}>
+        <Paper sx={{ p: { xs: 1, md: 2 }, backgroundColor: "background.paper", flexGrow: 1, order: { xs: -1, md: 0 } }}>
+          {/* 통계 - 상단 */}
+          {results.length > 0 && (
+            <Box sx={{ mb: 1, display: "flex", gap: 2, fontSize: 12 }}>
+              <Typography variant="caption">Total: {results.length}</Typography>
+              {results.length > 4 && (
+                <>
+                  <Typography variant="caption" sx={{ color: "#00ff00" }}>
+                    Hit: {results.filter((r, i) => i >= 4 && r.isCorrect).length}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "#fff59d" }}>
+                    Miss: {results.filter((r, i) => i >= 4 && r.isCorrect === false).length}
+                  </Typography>
+                </>
+              )}
+            </Box>
+          )}
           <Box
             sx={{
               display: "grid",
-              gridTemplateRows: "repeat(6, 32px)",
+              gridTemplateRows: { xs: "repeat(6, 24px)", md: "repeat(6, 32px)" },
               gridAutoFlow: "column",
-              gridAutoColumns: "32px",
+              gridAutoColumns: { xs: "24px", md: "32px" },
               gap: "2px",
-              minHeight: 200,
+              minHeight: { xs: 150, md: 200 },
             }}
           >
             {results.map((result, idx) => {
@@ -484,12 +697,12 @@ export default function GameT1Page() {
                 <Box
                   key={idx}
                   sx={{
-                    width: 32,
-                    height: 32,
+                    width: { xs: 24, md: 32 },
+                    height: { xs: 24, md: 32 },
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 14,
+                    fontSize: { xs: 11, md: 14 },
                     fontWeight: 800,
                     border: `3px solid ${borderColor}`,
                     borderRadius: 1,
@@ -505,12 +718,12 @@ export default function GameT1Page() {
             {getCurrentPredict() && (
               <Box
                 sx={{
-                  width: 32,
-                  height: 32,
+                  width: { xs: 24, md: 32 },
+                  height: { xs: 24, md: 32 },
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 14,
+                  fontSize: { xs: 11, md: 14 },
                   fontWeight: 800,
                   border: `3px solid ${getCurrentPredict() === "P" ? "#1565c0" : "#f44336"}`,
                   borderRadius: 1,
@@ -522,29 +735,12 @@ export default function GameT1Page() {
               </Box>
             )}
           </Box>
-
-          {/* 통계 */}
-          {results.length > 0 && (
-            <Box sx={{ mt: 2, display: "flex", gap: 2, fontSize: 12 }}>
-              <Typography variant="caption">Total: {results.length}</Typography>
-              {results.length > 4 && (
-                <>
-                  <Typography variant="caption" sx={{ color: "#00ff00" }}>
-                    Hit: {results.filter((r, i) => i >= 4 && r.isCorrect).length}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: "#fff59d" }}>
-                    Miss: {results.filter((r, i) => i >= 4 && r.isCorrect === false).length}
-                  </Typography>
-                </>
-              )}
-            </Box>
-          )}
         </Paper>
 
-        {/* 입력 패널 */}
+        {/* 입력 패널 - 데스크톱만 */}
         <Box
           sx={{
-            display: "flex",
+            display: { xs: "none", md: "flex" },
             flexDirection: "column",
             gap: 1,
             border: "1px solid rgba(255,255,255,0.3)",
@@ -572,22 +768,25 @@ export default function GameT1Page() {
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             {/* P 버튼 - 사각형 */}
             <Box
-              onClick={() => handleInputSelect("P")}
+              onClick={() => handleInput("P")}
               sx={{
-                width: 70,
-                height: 70,
+                width: { xs: 50, md: 70 },
+                height: { xs: 50, md: 70 },
                 borderRadius: 2,
-                border: selectedInput === "P" ? "3px solid #1565c0" : "3px solid #9e9e9e",
-                backgroundColor: selectedInput === "P" ? "#1565c0" : "#e0e0e0",
+                border: "3px solid #1565c0",
+                backgroundColor: "#1565c0",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: selectedInput === "P" ? "#fff" : "#9e9e9e",
-                fontSize: 28,
+                color: "#fff",
+                fontSize: { xs: 20, md: 28 },
                 fontWeight: "bold",
                 cursor: "pointer",
                 "&:hover": {
-                  border: "3px solid #1565c0",
+                  opacity: 0.8,
+                },
+                "&:active": {
+                  transform: "scale(0.95)",
                 },
               }}
             >
@@ -597,15 +796,15 @@ export default function GameT1Page() {
             {/* 가운데 숫자 - 사각형 */}
             <Box
               sx={{
-                width: 32,
-                height: 32,
+                width: { xs: 24, md: 32 },
+                height: { xs: 24, md: 32 },
                 borderRadius: 1,
                 border: "1px solid rgba(255,255,255,0.3)",
                 backgroundColor: "background.paper",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 12,
+                fontSize: { xs: 10, md: 12 },
                 color: "text.secondary",
               }}
             >
@@ -614,49 +813,30 @@ export default function GameT1Page() {
 
             {/* B 버튼 - 사각형 */}
             <Box
-              onClick={() => handleInputSelect("B")}
+              onClick={() => handleInput("B")}
               sx={{
-                width: 70,
-                height: 70,
+                width: { xs: 50, md: 70 },
+                height: { xs: 50, md: 70 },
                 borderRadius: 2,
-                border: selectedInput === "B" ? "3px solid #f44336" : "3px solid #9e9e9e",
-                backgroundColor: selectedInput === "B" ? "#f44336" : "#e0e0e0",
+                border: "3px solid #f44336",
+                backgroundColor: "#f44336",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: selectedInput === "B" ? "#fff" : "#9e9e9e",
-                fontSize: 28,
+                color: "#fff",
+                fontSize: { xs: 20, md: 28 },
                 fontWeight: "bold",
                 cursor: "pointer",
                 "&:hover": {
-                  border: "3px solid #f44336",
+                  opacity: 0.8,
+                },
+                "&:active": {
+                  transform: "scale(0.95)",
                 },
               }}
             >
               B
             </Box>
-          </Box>
-
-          {/* Enter 버튼 - 타원형 */}
-          <Box
-            onClick={selectedInput ? handleEnter : undefined}
-            sx={{
-              border: "1px solid rgba(255,255,255,0.3)",
-              backgroundColor: "background.paper",
-              borderRadius: 3,
-              px: 3,
-              py: 1,
-              textAlign: "center",
-              cursor: selectedInput ? "pointer" : "default",
-              opacity: selectedInput ? 1 : 0.5,
-              "&:hover": selectedInput ? {
-                backgroundColor: "rgba(255,255,255,0.1)",
-              } : {},
-            }}
-          >
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              Enter
-            </Typography>
           </Box>
 
           {/* delete 영역 */}

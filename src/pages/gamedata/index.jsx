@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { Box, Typography, Paper, IconButton, Select, MenuItem } from "@mui/material";
+import { Box, Typography, Paper, IconButton, Select, MenuItem, useMediaQuery, useTheme } from "@mui/material";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import { getGamesByPattern, deleteGame, getGameV2 } from "@/services/game-services";
 
 const GRID_ROWS = 6;
-const GRID_COLS = 32;
+const GRID_COLS = 42;
 
 // 16가지 패턴 (1~16 순서)
 const PATTERNS = [
@@ -41,7 +41,8 @@ const Circle = ({ type, size = 24 }) => {
         height: size,
         borderRadius: "50%",
         backgroundColor: colors[type],
-        border: `2px solid ${colors[type]}`,
+        border: "2px solid",
+        borderColor: colors[type],
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -55,7 +56,7 @@ const Circle = ({ type, size = 24 }) => {
   );
 };
 
-// 슈 격자 계산 (shoe_grid_display.md 참조) + 적중/미스 표시
+// 슈 격자 계산 (shoe_grid_display.md 참조) + 적중/미스 표시 + 약칭
 const calculateCircleGrid = (shoes, turns = []) => {
   const grid = Array(GRID_ROWS)
     .fill(null)
@@ -88,8 +89,13 @@ const calculateCircleGrid = (shoes, turns = []) => {
       status = turn.predict === turn.result ? "hit" : "miss";
     }
 
+    // 약칭: nickname이 있으면 사용, 없으면 "N"
+    const nickname = turn?.nickname || "N";
+
+    const cellData = { type: current, filled: true, status, nickname };
+
     if (prevValue === null) {
-      grid[row][col] = { type: current, filled: true, status };
+      grid[row][col] = cellData;
       verticalStartCol = col;
     } else if (current === prevValue) {
       if (isBent) {
@@ -104,14 +110,14 @@ const calculateCircleGrid = (shoes, turns = []) => {
         row++;
       }
       if (col >= GRID_COLS) break;
-      grid[row][col] = { type: current, filled: true, status };
+      grid[row][col] = cellData;
     } else {
       verticalStartCol++;
       col = verticalStartCol;
       row = 0;
       isBent = false;
       if (col >= GRID_COLS) break;
-      grid[row][col] = { type: current, filled: true, status };
+      grid[row][col] = cellData;
     }
 
     prevValue = current;
@@ -156,6 +162,9 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 const STORAGE_KEY = "gamedata_page_size";
 
 export default function GamedataPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
   const [patternIndex, setPatternIndex] = useState(0);
   const [allGames, setAllGames] = useState([]);
   const [selectedGameIndex, setSelectedGameIndex] = useState(null);
@@ -256,12 +265,67 @@ export default function GamedataPage() {
 
   return (
     <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1 }}>
-      {/* 상단 - 슈 격자 */}
+      {/* 상단 - 약칭 격자 */}
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: `repeat(${GRID_COLS}, 28px)`,
-          gridTemplateRows: `repeat(${GRID_ROWS}, 28px)`,
+          gridTemplateColumns: {
+            xs: `repeat(${GRID_COLS}, 18px)`,
+            md: `repeat(${GRID_COLS}, 28px)`,
+          },
+          gridTemplateRows: {
+            xs: `repeat(${GRID_ROWS}, 18px)`,
+            md: `repeat(${GRID_ROWS}, 28px)`,
+          },
+          gap: "1px",
+          backgroundColor: "#fff",
+          border: "1px solid #fff",
+          width: "fit-content",
+        }}
+      >
+        {grid.map((row, rowIndex) =>
+          row.map((cell, colIndex) => (
+            <Box
+              key={`nick-${rowIndex}-${colIndex}`}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "background.default",
+              }}
+            >
+              {cell && (
+                <Typography
+                  sx={{
+                    fontSize: { xs: 8, md: 10 },
+                    fontWeight: "bold",
+                    color: cell.status === "hit"
+                      ? "#4caf50"
+                      : cell.status === "miss"
+                        ? "#ffeb3b"
+                        : "text.secondary",
+                  }}
+                >
+                  {cell.nickname}
+                </Typography>
+              )}
+            </Box>
+          ))
+        )}
+      </Box>
+
+      {/* 슈 격자 */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: `repeat(${GRID_COLS}, 18px)`,
+            md: `repeat(${GRID_COLS}, 28px)`,
+          },
+          gridTemplateRows: {
+            xs: `repeat(${GRID_ROWS}, 18px)`,
+            md: `repeat(${GRID_ROWS}, 28px)`,
+          },
           gap: "1px",
           backgroundColor: "#fff",
           border: "1px solid #fff",
@@ -276,14 +340,10 @@ export default function GamedataPage() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: cell?.status === "hit"
-                  ? "rgba(76, 175, 80, 0.5)"
-                  : cell?.status === "miss"
-                    ? "rgba(255, 235, 59, 0.5)"
-                    : "background.default",
+                backgroundColor: "background.default",
               }}
             >
-              {cell && <Circle type={cell.type} size={24} />}
+              {cell && <Circle type={cell.type} size={isMobile ? 14 : 24} />}
             </Box>
           ))
         )}
@@ -335,7 +395,13 @@ export default function GamedataPage() {
         {selectedGame && (
           <Box sx={{ display: "flex", gap: 2, ml: 2 }}>
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              total: <span style={{ color: "#fff" }}>{totalCount}</span>
+              total: <span style={{ color: "#fff" }}>{selectedGameTurns.length}</span>
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              hit: <span style={{ color: "#4caf50" }}>{selectedGameTurns.filter(t => t.predict && t.predict === t.result).length}</span>
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              miss: <span style={{ color: "#ffeb3b" }}>{selectedGameTurns.filter(t => t.predict && t.predict !== t.result).length}</span>
             </Typography>
           </Box>
         )}
