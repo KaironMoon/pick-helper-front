@@ -7,6 +7,7 @@ import PageLayout from "../pages/PageLayout";
 import Picks from "../pages/picks";
 import GameT1 from "../pages/game-t1";
 import PickManagement from "../pages/pick-management";
+import Gamedata from "../pages/gamedata";
 
 const ProductLayout = lazy(() => import("../pages/product/ProductLayout"));
 const ProductList = lazy(() => import("../pages/product"));
@@ -57,6 +58,10 @@ const router = createBrowserRouter([
       {
         path: "/pick-management",
         element: <PickManagement />,
+      },
+      {
+        path: "/gamedata",
+        element: <Gamedata />,
       },
       ...ProductRouter,
     ],

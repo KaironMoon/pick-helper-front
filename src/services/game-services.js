@@ -20,3 +20,18 @@ export const getGame = (gameSeq) => {
 export const deleteGame = (gameSeq) => {
   return apiCaller.delete(`/api/v1/game/${gameSeq}`);
 };
+
+// V2 게임 상세 조회
+export const getGameV2 = (gameSeq) => {
+  return apiCaller.get(`/api/v1/game/v2/${gameSeq}`);
+};
+
+// 패턴별 게임 목록 조회 (앞 4자리)
+export const getGamesByPattern = (pattern, limit = 20) => {
+  return apiCaller.get(`/api/v1/game/by-pattern/${pattern}`, { limit });
+};
+
+// 패턴별 게임 수 요약
+export const getPatternSummary = () => {
+  return apiCaller.get("/api/v1/game/patterns/summary");
+};

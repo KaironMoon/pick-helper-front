@@ -409,7 +409,7 @@ export default function PickManagementPage() {
       const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shortname: dlNickname }),
+        body: JSON.stringify({ nickname: dlNickname }),
       });
 
       if (response.ok) {

@@ -5,6 +5,7 @@ import InfoIcon from "@mui/icons-material/Info";
 import HomeIcon from "@mui/icons-material/Home";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import ViewListIcon from "@mui/icons-material/ViewList";
+import StorageIcon from "@mui/icons-material/Storage";
 
 import { useNavigate } from "react-router-dom";
 
@@ -84,6 +85,14 @@ function PageLeftMenu({ isMobile, onMenuClose }) {
                   <ViewListIcon />
                 </ListItemIcon>
                 <ListItemText primary="Pick Mgmt" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => handleNavClick("/gamedata")}>
+                <ListItemIcon>
+                  <StorageIcon />
+                </ListItemIcon>
+                <ListItemText primary="Game Data" />
               </ListItemButton>
             </ListItem>
           </List>
