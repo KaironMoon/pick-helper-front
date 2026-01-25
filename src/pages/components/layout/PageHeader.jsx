@@ -30,8 +30,8 @@ function PageHeader({ isMobile, onMenuToggle }) {
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <img
           src="/logo-small.png"
-          alt="999 Logo"
-          style={{ width: isMobile ? 28 : 36, height: isMobile ? 28 : 36 }}
+          alt="Triple Nine Logo"
+          style={{ width: isMobile ? 28 : 36, height: 'auto' }}
         />
         {!isMobile && (
           <Typography variant="h6" component="div" sx={{ color: theme.palette.text.primary }}>
