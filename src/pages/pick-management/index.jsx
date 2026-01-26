@@ -275,27 +275,28 @@ export default function PickManagementPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isLandscape = useMediaQuery("(orientation: landscape)");
 
-  // API에서 picks2 데이터 로드
-  useEffect(() => {
-    const fetchPatterns = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/v1/picks2/list/${formatRange}`);
-        if (response.ok) {
-          const data = await response.json();
-          setPatterns(data);
-        } else {
-          // API 실패 시 빈 배열 또는 생성된 패턴 사용
-          setPatterns(generatePatterns(formatRange));
-        }
-      } catch (error) {
-        console.error("Failed to fetch patterns:", error);
-        // 에러 시 생성된 패턴 사용
+  // API에서 picks2 데이터 로드 (재사용 가능한 함수)
+  const fetchPatterns = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    try {
+      const response = await fetch(`/api/v1/picks2/list/${formatRange}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPatterns(data);
+      } else {
+        // API 실패 시 빈 배열 또는 생성된 패턴 사용
         setPatterns(generatePatterns(formatRange));
       }
-      setLoading(false);
-    };
+    } catch (error) {
+      console.error("Failed to fetch patterns:", error);
+      // 에러 시 생성된 패턴 사용
+      setPatterns(generatePatterns(formatRange));
+    }
+    if (showLoading) setLoading(false);
+  };
 
+  // 초기 로드 및 formatRange 변경 시
+  useEffect(() => {
     fetchPatterns();
   }, [formatRange]);
 
@@ -342,14 +343,55 @@ export default function PickManagementPage() {
     setCurrentPickIndex(0);
   };
 
-  // 가져오기 버튼 핸들러
+  // 가져오기 버튼 핸들러 (코드 형식: A1-1, 1-29 또는 패턴 형식: BBBB, PPPP)
   const handleFetchByCode = async () => {
     if (!fetchCode) return;
 
+    const input = fetchCode.toUpperCase().trim();
+
+    // P와 B로만 이루어진 경우 → 패턴으로 검색
+    if (/^[PB]+$/.test(input)) {
+      try {
+        const response = await fetch(`/api/v1/picks2/pattern/${input}`);
+        if (response.ok) {
+          const data = await response.json();
+          const code1 = data.code1;
+          const code2 = data.code2;
+          const prevPicks = data.prev_picks || "";
+          const nickname = data.shortname || data.nickname || "";
+          const pick1 = data.next_pick_1 || null;
+          const pick3 = data.next_pick_3 || "";
+          const pick6 = data.next_pick_6 || "";
+
+          setFetchCode(`${code1}-${code2}`);
+          setDlNickname(nickname);
+          setSelectedPattern(prevPicks);
+          setCurrentPick1(pick1);
+          setCurrentPick3(pick3 ? pick3.split("") : ["", "", ""]);
+          setCurrentPick6(pick6 ? pick6.split("") : ["", "", "", "", "", ""]);
+          setCurrentPickIndex(0);
+
+          // 스크롤 대상 설정
+          setScrollTargetCode(`${code1}-${code2}`);
+
+          // 해당 범위로 이동
+          if (code1 !== formatRange) {
+            setFormatRange(code1);
+          }
+        } else {
+          alert("패턴을 찾을 수 없습니다");
+        }
+      } catch (error) {
+        console.error("Failed to fetch pattern:", error);
+        alert("패턴 로딩 실패");
+      }
+      return;
+    }
+
     // "A1-1" 또는 "1-29" 형식 파싱
-    const parts = fetchCode.split("-");
+    const parts = input.split("-");
     if (parts.length !== 2) {
-      alert("올바른 형식으로 입력해주세요 (예: A1-1, 1-29)");
+      alert("올바른 형식으로 입력해주세요 (예: A1-1, 1-29 또는 BBBB)");
       return;
     }
 
@@ -372,6 +414,7 @@ export default function PickManagementPage() {
         const pick3 = data.next_pick_3 || "";
         const pick6 = data.next_pick_6 || "";
 
+        setFetchCode(`${code1}-${code2}`);
         setDlNickname(nickname);
         setSelectedPattern(prevPicks);
         setCurrentPick1(pick1);
@@ -413,14 +456,8 @@ export default function PickManagementPage() {
       });
 
       if (response.ok) {
-        // 로컬 데이터 직접 업데이트
-        setPatterns(prev => prev.map(p => {
-          const pCode = p.code1 ? `${p.code1}-${p.code2}` : p.code;
-          if (pCode === fetchCode) {
-            return { ...p, shortname: dlNickname, nickname: dlNickname };
-          }
-          return p;
-        }));
+        // 거울상 패턴도 서버에서 업데이트되므로 목록 다시 가져오기
+        await fetchPatterns(false);
       }
     } catch (error) {
       console.error("Failed to save nickname:", error);
@@ -448,13 +485,8 @@ export default function PickManagementPage() {
 
         if (response.ok) {
           setCurrentPick1(pick);
-          setPatterns(prev => prev.map(p => {
-            const pCode = p.code1 ? `${p.code1}-${p.code2}` : p.code;
-            if (pCode === fetchCode) {
-              return { ...p, next_pick_1: pick };
-            }
-            return p;
-          }));
+          // 거울상 패턴도 서버에서 업데이트되므로 목록 다시 가져오기
+          await fetchPatterns(false);
         }
       } catch (error) {
         console.error("Failed to save 1pick:", error);
@@ -475,13 +507,8 @@ export default function PickManagementPage() {
         });
 
         if (response.ok) {
-          setPatterns(prev => prev.map(p => {
-            const pCode = p.code1 ? `${p.code1}-${p.code2}` : p.code;
-            if (pCode === fetchCode) {
-              return { ...p, next_pick_3: pickStr };
-            }
-            return p;
-          }));
+          // 거울상 패턴도 서버에서 업데이트되므로 목록 다시 가져오기
+          await fetchPatterns(false);
         }
       } catch (error) {
         console.error("Failed to save 3pick:", error);
@@ -502,13 +529,8 @@ export default function PickManagementPage() {
         });
 
         if (response.ok) {
-          setPatterns(prev => prev.map(p => {
-            const pCode = p.code1 ? `${p.code1}-${p.code2}` : p.code;
-            if (pCode === fetchCode) {
-              return { ...p, next_pick_6: pickStr };
-            }
-            return p;
-          }));
+          // 거울상 패턴도 서버에서 업데이트되므로 목록 다시 가져오기
+          await fetchPatterns(false);
         }
       } catch (error) {
         console.error("Failed to save 6pick:", error);
@@ -545,13 +567,8 @@ export default function PickManagementPage() {
         }
         setCurrentPickIndex(0);
 
-        setPatterns(prev => prev.map(p => {
-          const pCode = p.code1 ? `${p.code1}-${p.code2}` : p.code;
-          if (pCode === fetchCode) {
-            return { ...p, [fieldName]: null };
-          }
-          return p;
-        }));
+        // 거울상 패턴도 서버에서 업데이트되므로 목록 다시 가져오기
+        await fetchPatterns(false);
       }
     } catch (error) {
       console.error("Failed to delete pick:", error);
