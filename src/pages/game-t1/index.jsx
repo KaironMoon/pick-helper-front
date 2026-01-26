@@ -345,8 +345,8 @@ export default function GameT1Page() {
           gap: "1px",
           mb: 3,
           p: 0,
-          backgroundColor: "#fff",
-          border: "1px solid #fff",
+          backgroundColor: "#616161",
+          border: "1px solid #616161",
           width: "fit-content",
           "& > div": {
             backgroundColor: "background.default",
@@ -403,25 +403,33 @@ export default function GameT1Page() {
           </Box>
         ))}
 
-        {/* 예상 픽 (없으면 빈칸) */}
-        <Box
-          sx={{
-            width: 32,
-            height: 32,
-            borderRadius: 1,
-            backgroundColor: "#fff",
-            border: getCurrentPredict()
-              ? `3px solid ${getCurrentPredict() === "P" ? "#1565c0" : "#f44336"}`
-              : "1px solid rgba(255,255,255,0.3)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: getCurrentPredict() === "P" ? "#1565c0" : "#f44336",
-            fontSize: 14,
-            fontWeight: "bold",
-          }}
-        >
-          {getCurrentPredict() || ""}
+        {/* 예상 픽 (6개 공간) */}
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+          {[0, 1, 2, 3, 4, 5].map((idx) => {
+            const predict = idx === 0 ? getCurrentPredict() : null;
+            return (
+              <Box
+                key={idx}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 1,
+                  backgroundColor: "#fff",
+                  border: predict
+                    ? `3px solid ${predict === "P" ? "#1565c0" : "#f44336"}`
+                    : "1px solid rgba(255,255,255,0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: predict === "P" ? "#1565c0" : "#f44336",
+                  fontSize: 14,
+                  fontWeight: "bold",
+                }}
+              >
+                {predict || ""}
+              </Box>
+            );
+          })}
         </Box>
 
         {/* turn 번호 */}
@@ -445,15 +453,15 @@ export default function GameT1Page() {
         <Box
           onClick={() => handleInput("P")}
           sx={{
-            width: 32,
-            height: 32,
+            width: 40,
+            height: 40,
             borderRadius: 1,
             backgroundColor: "#1565c0",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: "#fff",
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: "bold",
             cursor: "pointer",
             "&:active": { transform: "scale(0.95)" },
@@ -466,15 +474,15 @@ export default function GameT1Page() {
         <Box
           onClick={() => handleInput("B")}
           sx={{
-            width: 32,
-            height: 32,
+            width: 40,
+            height: 40,
             borderRadius: 1,
             backgroundColor: "#f44336",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: "#fff",
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: "bold",
             cursor: "pointer",
             "&:active": { transform: "scale(0.95)" },
@@ -482,6 +490,9 @@ export default function GameT1Page() {
         >
           B
         </Box>
+
+        {/* 간격 */}
+        <Box sx={{ width: 32 }} />
 
         {/* delete 라벨 */}
         <Box

@@ -583,8 +583,8 @@ export default function PickManagementPage() {
         gridTemplateColumns: `repeat(${GRID_COLS}, 28px)`,
         gridTemplateRows: `repeat(${GRID_ROWS}, 28px)`,
         gap: "1px",
-        backgroundColor: "#fff",
-        border: "1px solid #fff",
+        backgroundColor: "#616161",
+        border: "1px solid #616161",
         "& > div": {
           backgroundColor: "background.default",
         },
@@ -615,8 +615,8 @@ export default function PickManagementPage() {
         gridTemplateColumns: `repeat(${GRID_COLS}, 18px)`,
         gridTemplateRows: `repeat(${GRID_ROWS}, 18px)`,
         gap: "1px",
-        backgroundColor: "#fff",
-        border: "1px solid #fff",
+        backgroundColor: "#616161",
+        border: "1px solid #616161",
         "& > div": {
           backgroundColor: "background.default",
         },
@@ -644,7 +644,7 @@ export default function PickManagementPage() {
     return (
       <Box sx={{ p: 1, height: "100%", display: "flex", gap: 1, overflow: "hidden" }}>
         {/* 좌측: 격자 + 입력 - 고정 너비 */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, flexShrink: 0, alignItems: "flex-start", width: 400, overflow: "hidden" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, flexShrink: 0, alignItems: "flex-start", width: 360, overflow: "hidden" }}>
           {/* 격자 */}
           {GridComponentSmall}
           {/* 입력 컨트롤 - 3픽 기준 높이 고정 */}
@@ -819,7 +819,7 @@ export default function PickManagementPage() {
         </Box>
 
         {/* 우측: 테이블 */}
-        <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, maxWidth: 480, marginLeft: "auto" }}>
+        <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, maxWidth: 560, marginLeft: "auto" }}>
           {/* 서식 범위 선택 */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
             <IconButton size="small" onClick={handlePrevFormat}><ArrowBack sx={{ fontSize: 18 }} /></IconButton>
@@ -878,15 +878,15 @@ export default function PickManagementPage() {
                       <Circle key={i} type={char} filled={true} size={14} />
                     ))}
                   </Box>
-                  {/* Pick 표시 */}
+                  {/* Pick 표시 - 흰색 바탕 + 테두리 */}
                   <Box sx={{ display: "flex", gap: "2px" }}>
                     {selectedTab === "1pick" && (
-                      <Circle type={pattern.next_pick_1} filled={!!pattern.next_pick_1} size={14} />
+                      <Circle type={pattern.next_pick_1} filled={false} size={14} />
                     )}
                     {selectedTab === "3pick" && (
                       <>
                         {(pattern.next_pick_3 || "").split("").map((char, i) => (
-                          <Circle key={i} type={char} filled={!!char} size={14} />
+                          <Circle key={i} type={char} filled={false} size={14} />
                         ))}
                         {Array.from({ length: 3 - (pattern.next_pick_3?.length || 0) }).map((_, i) => (
                           <Circle key={`empty-${i}`} type={null} filled={false} size={14} />
@@ -896,7 +896,7 @@ export default function PickManagementPage() {
                     {selectedTab === "6pick" && (
                       <>
                         {(pattern.next_pick_6 || "").split("").map((char, i) => (
-                          <Circle key={i} type={char} filled={!!char} size={14} />
+                          <Circle key={i} type={char} filled={false} size={14} />
                         ))}
                         {Array.from({ length: 6 - (pattern.next_pick_6?.length || 0) }).map((_, i) => (
                           <Circle key={`empty-${i}`} type={null} filled={false} size={14} />
@@ -1005,9 +1005,9 @@ export default function PickManagementPage() {
                   <Typography variant="caption" sx={{ width: 50, textAlign: "center", fontSize: 11 }}>{code}</Typography>
                   <Box sx={{ display: "flex", gap: "2px", flex: 1 }}>{pattern.prev_picks?.split("").map((char, i) => (<Circle key={i} type={char} filled={true} size={16} />))}</Box>
                   <Box sx={{ display: "flex", gap: "2px" }}>
-                    {selectedTab === "1pick" && <Circle type={pattern.next_pick_1} filled={!!pattern.next_pick_1} size={16} />}
-                    {selectedTab === "3pick" && (<>{(pattern.next_pick_3 || "").split("").map((char, i) => (<Circle key={i} type={char} filled={!!char} size={16} />))}{Array.from({ length: 3 - (pattern.next_pick_3?.length || 0) }).map((_, i) => (<Circle key={`empty-${i}`} type={null} filled={false} size={16} />))}</>)}
-                    {selectedTab === "6pick" && (<>{(pattern.next_pick_6 || "").split("").map((char, i) => (<Circle key={i} type={char} filled={!!char} size={16} />))}{Array.from({ length: 6 - (pattern.next_pick_6?.length || 0) }).map((_, i) => (<Circle key={`empty-${i}`} type={null} filled={false} size={16} />))}</>)}
+                    {selectedTab === "1pick" && <Circle type={pattern.next_pick_1} filled={false} size={16} />}
+                    {selectedTab === "3pick" && (<>{(pattern.next_pick_3 || "").split("").map((char, i) => (<Circle key={i} type={char} filled={false} size={16} />))}{Array.from({ length: 3 - (pattern.next_pick_3?.length || 0) }).map((_, i) => (<Circle key={`empty-${i}`} type={null} filled={false} size={16} />))}</>)}
+                    {selectedTab === "6pick" && (<>{(pattern.next_pick_6 || "").split("").map((char, i) => (<Circle key={i} type={char} filled={false} size={16} />))}{Array.from({ length: 6 - (pattern.next_pick_6?.length || 0) }).map((_, i) => (<Circle key={`empty-${i}`} type={null} filled={false} size={16} />))}</>)}
                   </Box>
                 </Box>
               );
@@ -1032,8 +1032,8 @@ export default function PickManagementPage() {
             gridTemplateColumns: `repeat(${GRID_COLS}, 28px)`,
             gridTemplateRows: `repeat(${GRID_ROWS}, 28px)`,
             gap: "1px",
-            backgroundColor: "#fff",
-            border: "1px solid #fff",
+            backgroundColor: "#616161",
+            border: "1px solid #616161",
             "& > div": {
               backgroundColor: "background.default",
             },

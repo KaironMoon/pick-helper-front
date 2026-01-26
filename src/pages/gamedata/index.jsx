@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import { Box, Typography, Paper, IconButton, Select, MenuItem, useMediaQuery, useTheme } from "@mui/material";
+import { Box, Typography, Paper, IconButton, Select, MenuItem, useMediaQuery, useTheme, CircularProgress } from "@mui/material";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import ArrowForward from "@mui/icons-material/ArrowForward";
-import { getGamesByPattern, deleteGame, getGameV2 } from "@/services/game-services";
+import { getGamesByPattern, deleteGame, getGameV2, getAllGamesWithStats, getGameStat } from "@/services/game-services";
 
 const GRID_ROWS = 6;
 const GRID_COLS = 42;
 
-// 16가지 패턴 (1~16 순서)
+// 17가지 패턴 (전체 + 1~16 순서)
 const PATTERNS = [
+  { pattern: "ALL", label: "전체" },  // 0 - 전체
   { pattern: "PPPP" },  // 1
   { pattern: "PPPB" },  // 2
   { pattern: "PPBP" },  // 3
@@ -27,8 +28,8 @@ const PATTERNS = [
   { pattern: "BPPP" },  // 16
 ];
 
-// 원 컴포넌트
-const Circle = ({ type, size = 24 }) => {
+// 원 컴포넌트 - nickname 표시, P/B는 색상으로만
+const Circle = ({ type, nickname, size = 24 }) => {
   const colors = {
     P: "#1565c0",
     B: "#f44336",
@@ -46,17 +47,47 @@ const Circle = ({ type, size = 24 }) => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: size * 0.5,
+        fontSize: size * 0.4,
         fontWeight: "bold",
         color: "#fff",
       }}
     >
-      {type}
+      {nickname || ""}
     </Box>
   );
 };
 
-// 슈 격자 계산 (shoe_grid_display.md 참조) + 적중/미스 표시 + 약칭
+// 4연패 이상 구간 계산
+const calculateStreakTurns = (turns) => {
+  const streakTurns = new Set();
+  let missStart = -1;
+  let missCount = 0;
+
+  for (let i = 0; i < turns.length; i++) {
+    const t = turns[i];
+    if (t.predict && t.predict !== t.result) {
+      if (missStart === -1) missStart = i;
+      missCount++;
+    } else {
+      if (missCount >= 4) {
+        for (let j = missStart; j < missStart + missCount; j++) {
+          streakTurns.add(turns[j].turn_no);
+        }
+      }
+      missStart = -1;
+      missCount = 0;
+    }
+  }
+  // 마지막 연패 체크
+  if (missCount >= 4) {
+    for (let j = missStart; j < missStart + missCount; j++) {
+      streakTurns.add(turns[j].turn_no);
+    }
+  }
+  return streakTurns;
+};
+
+// 슈 격자 계산 (shoe_grid_display.md 참조) + 적중/미스 표시 + 약칭 + 연패 표시
 const calculateCircleGrid = (shoes, turns = []) => {
   const grid = Array(GRID_ROWS)
     .fill(null)
@@ -71,6 +102,9 @@ const calculateCircleGrid = (shoes, turns = []) => {
   turns.forEach(t => {
     turnsMap[t.turn_no] = t;
   });
+
+  // 4연패 이상 턴 계산
+  const streakTurns = calculateStreakTurns(turns);
 
   let col = 0;
   let row = 0;
@@ -92,7 +126,10 @@ const calculateCircleGrid = (shoes, turns = []) => {
     // 약칭: nickname이 있으면 사용, 없으면 "N"
     const nickname = turn?.nickname || "N";
 
-    const cellData = { type: current, filled: true, status, nickname };
+    // 연패 여부
+    const inStreak = streakTurns.has(turnNo);
+
+    const cellData = { type: current, filled: true, status, nickname, inStreak };
 
     if (prevValue === null) {
       grid[row][col] = cellData;
@@ -175,6 +212,40 @@ export default function GamedataPage() {
     return saved ? parseInt(saved, 10) : 10;
   });
   const [selectedGameTurns, setSelectedGameTurns] = useState([]);
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalcProgress, setRecalcProgress] = useState(0);
+  const [streakFilter, setStreakFilter] = useState(null); // 연패 필터 (4~14 또는 null)
+  const [patternStat, setPatternStat] = useState(null); // game_stat 테이블 데이터
+
+  // 통계 재계산 (SSE)
+  const handleRecalculateStats = () => {
+    if (recalculating) return;
+    if (!confirm("전체 게임 통계를 재계산합니다. 진행하시겠습니까?")) return;
+
+    setRecalculating(true);
+    setRecalcProgress(0);
+
+    const eventSource = new EventSource("/api/v1/game/recalculate-stats/stream");
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      setRecalcProgress(data.progress);
+
+      if (data.done) {
+        eventSource.close();
+        setRecalculating(false);
+        alert(`완료: ${data.total}개 게임 업데이트`);
+        fetchGamesByPattern(currentPattern.pattern);
+        fetchPatternStat(currentPattern.pattern);
+      }
+    };
+
+    eventSource.onerror = () => {
+      eventSource.close();
+      setRecalculating(false);
+      alert("재계산 실패");
+    };
+  };
 
   const handlePageSizeChange = (e) => {
     const newSize = e.target.value;
@@ -185,18 +256,52 @@ export default function GamedataPage() {
 
   const currentPattern = PATTERNS[patternIndex];
 
+  // 15+ 연패 합계 계산
+  const get15PlusStreaks = (streaks) => {
+    if (!streaks) return 0;
+    return Object.entries(streaks)
+      .filter(([k]) => parseInt(k) >= 15)
+      .reduce((sum, [, v]) => sum + v, 0);
+  };
+
+  // 연패 필터 적용
+  const filteredGames = streakFilter
+    ? allGames.filter(g => {
+        if (streakFilter === "폭") {
+          return get15PlusStreaks(g.streaks) > 0;
+        }
+        return g.streaks && g.streaks[streakFilter] > 0;
+      })
+    : allGames;
+
   // 페이지네이션 계산
-  const totalPages = Math.ceil(allGames.length / itemsPerPage);
-  const games = allGames.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(filteredGames.length / itemsPerPage);
+  const games = filteredGames.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // 선택된 게임
-  const selectedGame = selectedGameIndex !== null ? allGames[selectedGameIndex] : null;
+  const selectedGame = selectedGameIndex !== null ? filteredGames[selectedGameIndex] : null;
+
+  // 연패 필터 토글
+  const handleStreakFilter = (n) => {
+    if (streakFilter === n) {
+      setStreakFilter(null);
+    } else {
+      setStreakFilter(n);
+    }
+    setCurrentPage(1);
+    setSelectedGameIndex(null);
+  };
 
   // 패턴별 게임 목록 조회
   const fetchGamesByPattern = useCallback(async (pattern) => {
     setLoading(true);
     try {
-      const response = await getGamesByPattern(pattern, 500);
+      let response;
+      if (pattern === "ALL") {
+        response = await getAllGamesWithStats(500);
+      } else {
+        response = await getGamesByPattern(pattern, 500);
+      }
       setAllGames(response.data || []);
       setCurrentPage(1);
       setSelectedGameIndex(null);
@@ -208,10 +313,22 @@ export default function GamedataPage() {
     setLoading(false);
   }, []);
 
+  // 패턴 통계 조회 (game_stat 테이블)
+  const fetchPatternStat = useCallback(async (pattern) => {
+    try {
+      const response = await getGameStat(pattern);
+      setPatternStat(response.data);
+    } catch (error) {
+      console.error("Failed to fetch pattern stat:", error);
+      setPatternStat(null);
+    }
+  }, []);
+
   // 패턴 변경시 데이터 조회
   useEffect(() => {
     fetchGamesByPattern(currentPattern.pattern);
-  }, [patternIndex, fetchGamesByPattern, currentPattern.pattern]);
+    fetchPatternStat(currentPattern.pattern);
+  }, [patternIndex, fetchGamesByPattern, fetchPatternStat, currentPattern.pattern]);
 
   // 이전 패턴
   const handlePrevPattern = () => {
@@ -229,7 +346,7 @@ export default function GamedataPage() {
     setSelectedGameIndex(globalIndex);
 
     // 게임 상세 조회 (turns 포함)
-    const game = allGames[globalIndex];
+    const game = filteredGames[globalIndex];
     if (game) {
       try {
         const response = await getGameV2(game.game_seq);
@@ -265,7 +382,7 @@ export default function GamedataPage() {
 
   return (
     <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1 }}>
-      {/* 상단 - 약칭 격자 */}
+      {/* 슈 격자 - hit/miss는 배경색, P/B는 원 색상, 글자는 nickname */}
       <Box
         sx={{
           display: "grid",
@@ -278,57 +395,8 @@ export default function GamedataPage() {
             md: `repeat(${GRID_ROWS}, 28px)`,
           },
           gap: "1px",
-          backgroundColor: "#fff",
-          border: "1px solid #fff",
-          width: "fit-content",
-        }}
-      >
-        {grid.map((row, rowIndex) =>
-          row.map((cell, colIndex) => (
-            <Box
-              key={`nick-${rowIndex}-${colIndex}`}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "background.default",
-              }}
-            >
-              {cell && (
-                <Typography
-                  sx={{
-                    fontSize: { xs: 8, md: 10 },
-                    fontWeight: "bold",
-                    color: cell.status === "hit"
-                      ? "#4caf50"
-                      : cell.status === "miss"
-                        ? "#ffeb3b"
-                        : "text.secondary",
-                  }}
-                >
-                  {cell.nickname}
-                </Typography>
-              )}
-            </Box>
-          ))
-        )}
-      </Box>
-
-      {/* 슈 격자 */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: `repeat(${GRID_COLS}, 18px)`,
-            md: `repeat(${GRID_COLS}, 28px)`,
-          },
-          gridTemplateRows: {
-            xs: `repeat(${GRID_ROWS}, 18px)`,
-            md: `repeat(${GRID_ROWS}, 28px)`,
-          },
-          gap: "1px",
-          backgroundColor: "#fff",
-          border: "1px solid #fff",
+          backgroundColor: "#616161",
+          border: "1px solid #616161",
           width: "fit-content",
         }}
       >
@@ -340,10 +408,16 @@ export default function GamedataPage() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: "background.default",
+                backgroundColor: cell?.status === "hit"
+                  ? "#4caf50"
+                  : cell?.status === "miss"
+                    ? "#ffeb3b"
+                    : "background.default",
+                border: cell?.inStreak ? "2px solid #ff5722" : "none",
+                boxSizing: "border-box",
               }}
             >
-              {cell && <Circle type={cell.type} size={isMobile ? 14 : 24} />}
+              {cell && <Circle type={cell.type} nickname={cell.nickname} size={isMobile ? 12 : 22} />}
             </Box>
           ))
         )}
@@ -366,44 +440,29 @@ export default function GamedataPage() {
               textAlign: "center",
             }}
           >
-            <Typography variant="body2">{currentPattern.pattern}</Typography>
+            <Typography variant="body2">{currentPattern.label || currentPattern.pattern}</Typography>
           </Box>
           <IconButton size="small" onClick={handleNextPattern}>
             <ArrowForward sx={{ fontSize: 18 }} />
           </IconButton>
         </Box>
 
-        {/* 페이지당 개수 선택 */}
-        <Select
-          value={itemsPerPage}
-          onChange={handlePageSizeChange}
-          size="small"
-          sx={{
-            minWidth: 60,
-            fontSize: 12,
-            "& .MuiSelect-select": { py: 0.5, px: 1 },
-          }}
-        >
-          {PAGE_SIZE_OPTIONS.map((size) => (
-            <MenuItem key={size} value={size} sx={{ fontSize: 12 }}>
-              {size}
-            </MenuItem>
-          ))}
-        </Select>
+        {/* 전체 통계 (game_stat 테이블) */}
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          game:<span style={{ color: "#fff" }}>{patternStat?.game_count || 0}</span>
+          {" "}
+          <span style={{ color: "#fff" }}>{patternStat?.total_turns || 0}</span>
+          :<span style={{ color: "#4caf50" }}>{patternStat?.total_hit || 0}</span>
+          :<span style={{ color: "#ffeb3b" }}>{patternStat?.total_miss || 0}</span>
+        </Typography>
 
-        {/* 통계 - 게임 선택 후에만 표시 */}
+        {/* 선택된 게임 통계 */}
         {selectedGame && (
-          <Box sx={{ display: "flex", gap: 2, ml: 2 }}>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              total: <span style={{ color: "#fff" }}>{selectedGameTurns.length}</span>
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              hit: <span style={{ color: "#4caf50" }}>{selectedGameTurns.filter(t => t.predict && t.predict === t.result).length}</span>
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              miss: <span style={{ color: "#ffeb3b" }}>{selectedGameTurns.filter(t => t.predict && t.predict !== t.result).length}</span>
-            </Typography>
-          </Box>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            sel:<span style={{ color: "#fff" }}>{selectedGameTurns.filter(t => t.predict).length}</span>
+            :<span style={{ color: "#4caf50" }}>{selectedGameTurns.filter(t => t.predict && t.predict === t.result).length}</span>
+            :<span style={{ color: "#ffeb3b" }}>{selectedGameTurns.filter(t => t.predict && t.predict !== t.result).length}</span>
+          </Typography>
         )}
 
         {/* 선택된 번호 + Delete - 게임 선택 후에만 표시 */}
@@ -442,6 +501,100 @@ export default function GamedataPage() {
 
       {/* 하단 - 게임 테이블 */}
       <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden" }}>
+        {/* 페이지네이션 */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 0.5,
+            p: 1,
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          <Box
+            onClick={() => currentPage > 1 && setCurrentPage(1)}
+            sx={{
+              px: 1,
+              py: 0.25,
+              fontSize: 11,
+              cursor: currentPage > 1 ? "pointer" : "default",
+              color: currentPage > 1 ? "text.primary" : "text.disabled",
+              "&:hover": currentPage > 1 ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
+            }}
+          >
+            {"<<"}
+          </Box>
+          <Box
+            onClick={() => {
+              const startPage = Math.floor((currentPage - 1) / 10) * 10 + 1;
+              if (startPage > 1) setCurrentPage(startPage - 10);
+            }}
+            sx={{
+              px: 1,
+              py: 0.25,
+              fontSize: 11,
+              cursor: Math.floor((currentPage - 1) / 10) > 0 ? "pointer" : "default",
+              color: Math.floor((currentPage - 1) / 10) > 0 ? "text.primary" : "text.disabled",
+              "&:hover": Math.floor((currentPage - 1) / 10) > 0 ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
+            }}
+          >
+            {"<"}
+          </Box>
+          {(() => {
+            const startPage = Math.floor((currentPage - 1) / 10) * 10 + 1;
+            const endPage = Math.min(startPage + 9, totalPages);
+            return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map((page) => (
+              <Box
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                sx={{
+                  px: 1,
+                  py: 0.25,
+                  fontSize: 11,
+                  cursor: "pointer",
+                  borderRadius: 0.5,
+                  backgroundColor: page === currentPage ? "rgba(76, 175, 80, 0.3)" : "transparent",
+                  color: page === currentPage ? "#4caf50" : "text.primary",
+                  "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+                }}
+              >
+                {page}
+              </Box>
+            ));
+          })()}
+          <Box
+            onClick={() => {
+              const startPage = Math.floor((currentPage - 1) / 10) * 10 + 1;
+              const nextStart = startPage + 10;
+              if (nextStart <= totalPages) setCurrentPage(nextStart);
+            }}
+            sx={{
+              px: 1,
+              py: 0.25,
+              fontSize: 11,
+              cursor: Math.floor((currentPage - 1) / 10) * 10 + 11 <= totalPages ? "pointer" : "default",
+              color: Math.floor((currentPage - 1) / 10) * 10 + 11 <= totalPages ? "text.primary" : "text.disabled",
+              "&:hover": Math.floor((currentPage - 1) / 10) * 10 + 11 <= totalPages ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
+            }}
+          >
+            {">"}
+          </Box>
+          <Box
+            onClick={() => currentPage < totalPages && setCurrentPage(totalPages)}
+            sx={{
+              px: 1,
+              py: 0.25,
+              fontSize: 11,
+              cursor: currentPage < totalPages ? "pointer" : "default",
+              color: currentPage < totalPages ? "text.primary" : "text.disabled",
+              "&:hover": currentPage < totalPages ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
+            }}
+          >
+            {">>"}
+          </Box>
+        </Box>
+
         {/* 테이블 헤더 */}
         <Box
           sx={{
@@ -450,17 +603,40 @@ export default function GamedataPage() {
             p: 1,
             borderBottom: "1px solid rgba(255,255,255,0.2)",
             backgroundColor: "rgba(255,255,255,0.05)",
+            gap: 0.5,
           }}
         >
-          <Typography variant="caption" sx={{ width: 60, textAlign: "center" }}>
+          <Typography variant="caption" sx={{ width: 50, textAlign: "center" }}>
             번호
           </Typography>
-          <Typography variant="caption" sx={{ width: 80, textAlign: "center" }}>
+          <Typography variant="caption" sx={{ width: 70, textAlign: "center" }}>
             저장
           </Typography>
-          <Typography variant="caption" sx={{ flex: 1 }}>
-            data
+          <Typography variant="caption" sx={{ width: 45, textAlign: "center" }}>
+            id
           </Typography>
+          <Typography variant="caption" sx={{ width: 70, textAlign: "center" }}>
+            T-H-M
+          </Typography>
+          {[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, "폭"].map((n) => (
+            <Box
+              key={n}
+              onClick={() => handleStreakFilter(n)}
+              sx={{
+                width: 22,
+                textAlign: "center",
+                cursor: "pointer",
+                border: streakFilter === n ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+                borderRadius: 0.5,
+                py: 0.25,
+                backgroundColor: streakFilter === n ? "rgba(76, 175, 80, 0.2)" : "transparent",
+                color: streakFilter === n ? "#4caf50" : n === "폭" ? "#f44336" : "text.primary",
+                "&:hover": { backgroundColor: streakFilter === n ? "rgba(76, 175, 80, 0.3)" : "rgba(255,255,255,0.1)" },
+              }}
+            >
+              <Typography variant="caption">{n}</Typography>
+            </Box>
+          ))}
         </Box>
 
         {/* 테이블 바디 */}
@@ -475,6 +651,7 @@ export default function GamedataPage() {
             games.map((game, index) => {
               const globalIndex = (currentPage - 1) * itemsPerPage + index;
               const isSelected = selectedGameIndex === globalIndex;
+              const streaks = game.streaks || {};
 
               return (
                 <Box
@@ -490,39 +667,45 @@ export default function GamedataPage() {
                       backgroundColor: isSelected ? "rgba(76, 175, 80, 0.3)" : "rgba(255,255,255,0.05)",
                     },
                     borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    gap: 0.5,
                   }}
                 >
-                  <Typography variant="body2" sx={{ width: 60, textAlign: "center" }}>
+                  <Typography variant="body2" sx={{ width: 50, textAlign: "center" }}>
                     {game.game_seq}
                   </Typography>
-                  <Typography variant="caption" sx={{ width: 80, textAlign: "center", color: "text.secondary" }}>
+                  <Typography variant="caption" sx={{ width: 70, textAlign: "center", color: "text.secondary" }}>
                     {game.date ? new Date(game.date).toLocaleDateString().slice(2) : "-"}
                   </Typography>
-                  <Box sx={{ flex: 1, display: "flex", gap: "2px", flexWrap: "wrap" }}>
-                    {game.shoes ? (
-                      game.shoes.split("").map((char, i) => (
-                        <Box
-                          key={i}
-                          sx={{
-                            width: 22,
-                            height: 22,
-                            borderRadius: "50%",
-                            backgroundColor: char === "P" ? "#1565c0" : "#f44336",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 12,
-                            fontWeight: "bold",
-                            color: "#fff",
-                          }}
-                        >
-                          {char}
-                        </Box>
-                      ))
-                    ) : (
-                      "-"
-                    )}
-                  </Box>
+                  <Typography variant="caption" sx={{ width: 45, textAlign: "center", color: "text.secondary" }}>
+                    admin
+                  </Typography>
+                  <Typography variant="caption" sx={{ width: 70, textAlign: "center", color: "text.secondary" }}>
+                    {`${game.total || 0}-${game.hit || 0}-${game.miss || 0}`}
+                  </Typography>
+                  {[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((n) => (
+                    <Typography
+                      key={n}
+                      variant="caption"
+                      sx={{
+                        width: 22,
+                        textAlign: "center",
+                        color: streaks[n] ? "#ffeb3b" : "text.secondary",
+                      }}
+                    >
+                      {streaks[n] || 0}
+                    </Typography>
+                  ))}
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      width: 22,
+                      textAlign: "center",
+                      color: get15PlusStreaks(streaks) ? "#f44336" : "text.secondary",
+                      fontWeight: get15PlusStreaks(streaks) ? "bold" : "normal",
+                    }}
+                  >
+                    {get15PlusStreaks(streaks)}
+                  </Typography>
                 </Box>
               );
             })
@@ -534,101 +717,51 @@ export default function GamedataPage() {
             </Box>
           )}
         </Box>
-
-        {/* 페이지네이션 */}
-        <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: 0.5,
-              p: 1,
-              borderTop: "1px solid rgba(255,255,255,0.1)",
-            }}
-          >
-            <Box
-              onClick={() => currentPage > 1 && setCurrentPage(1)}
-              sx={{
-                px: 1,
-                py: 0.25,
-                fontSize: 11,
-                cursor: currentPage > 1 ? "pointer" : "default",
-                color: currentPage > 1 ? "text.primary" : "text.disabled",
-                "&:hover": currentPage > 1 ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
-              }}
-            >
-              {"<<"}
-            </Box>
-            <Box
-              onClick={() => {
-                const startPage = Math.floor((currentPage - 1) / 10) * 10 + 1;
-                if (startPage > 1) setCurrentPage(startPage - 10);
-              }}
-              sx={{
-                px: 1,
-                py: 0.25,
-                fontSize: 11,
-                cursor: Math.floor((currentPage - 1) / 10) > 0 ? "pointer" : "default",
-                color: Math.floor((currentPage - 1) / 10) > 0 ? "text.primary" : "text.disabled",
-                "&:hover": Math.floor((currentPage - 1) / 10) > 0 ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
-              }}
-            >
-              {"<"}
-            </Box>
-            {(() => {
-              const startPage = Math.floor((currentPage - 1) / 10) * 10 + 1;
-              const endPage = Math.min(startPage + 9, totalPages);
-              return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map((page) => (
-                <Box
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  sx={{
-                    px: 1,
-                    py: 0.25,
-                    fontSize: 11,
-                    cursor: "pointer",
-                    borderRadius: 0.5,
-                    backgroundColor: page === currentPage ? "rgba(76, 175, 80, 0.3)" : "transparent",
-                    color: page === currentPage ? "#4caf50" : "text.primary",
-                    "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
-                  }}
-                >
-                  {page}
-                </Box>
-              ));
-            })()}
-            <Box
-              onClick={() => {
-                const startPage = Math.floor((currentPage - 1) / 10) * 10 + 1;
-                const nextStart = startPage + 10;
-                if (nextStart <= totalPages) setCurrentPage(nextStart);
-              }}
-              sx={{
-                px: 1,
-                py: 0.25,
-                fontSize: 11,
-                cursor: Math.floor((currentPage - 1) / 10) * 10 + 11 <= totalPages ? "pointer" : "default",
-                color: Math.floor((currentPage - 1) / 10) * 10 + 11 <= totalPages ? "text.primary" : "text.disabled",
-                "&:hover": Math.floor((currentPage - 1) / 10) * 10 + 11 <= totalPages ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
-              }}
-            >
-              {">"}
-            </Box>
-            <Box
-              onClick={() => currentPage < totalPages && setCurrentPage(totalPages)}
-              sx={{
-                px: 1,
-                py: 0.25,
-                fontSize: 11,
-                cursor: currentPage < totalPages ? "pointer" : "default",
-                color: currentPage < totalPages ? "text.primary" : "text.disabled",
-                "&:hover": currentPage < totalPages ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
-              }}
-            >
-              {">>"}
-            </Box>
-          </Box>
       </Paper>
+
+      {/* 하단 - 페이지당 개수 + 통계갱신 */}
+      <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, mt: 1 }}>
+        <Select
+          value={itemsPerPage}
+          onChange={handlePageSizeChange}
+          size="small"
+          sx={{
+            minWidth: 60,
+            fontSize: 12,
+            "& .MuiSelect-select": { py: 0.5, px: 1 },
+          }}
+        >
+          {PAGE_SIZE_OPTIONS.map((size) => (
+            <MenuItem key={size} value={size} sx={{ fontSize: 12 }}>
+              {size}
+            </MenuItem>
+          ))}
+        </Select>
+        <Box
+          onClick={handleRecalculateStats}
+          sx={{
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: 1,
+            px: 1.5,
+            py: 0.5,
+            cursor: recalculating ? "default" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            minWidth: 80,
+            "&:hover": !recalculating ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
+          }}
+        >
+          {recalculating ? (
+            <>
+              <CircularProgress size={12} sx={{ color: "#4caf50" }} />
+              <Typography variant="caption" sx={{ color: "#4caf50" }}>{recalcProgress}%</Typography>
+            </>
+          ) : (
+            <Typography variant="caption">통계갱신</Typography>
+          )}
+        </Box>
+      </Box>
     </Box>
   );
 }

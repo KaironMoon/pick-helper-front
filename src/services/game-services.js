@@ -31,7 +31,22 @@ export const getGamesByPattern = (pattern, limit = 20) => {
   return apiCaller.get(`/api/v1/game/by-pattern/${pattern}`, { limit });
 };
 
+// 전체 게임 목록 조회 (통계 포함)
+export const getAllGamesWithStats = (limit = 500) => {
+  return apiCaller.get("/api/v1/game/all-with-stats", { limit });
+};
+
 // 패턴별 게임 수 요약
 export const getPatternSummary = () => {
   return apiCaller.get("/api/v1/game/patterns/summary");
+};
+
+// 게임 통계 재계산 (picks2 기준)
+export const recalculateGameStats = () => {
+  return apiCaller.post("/api/v1/game/recalculate-stats");
+};
+
+// game_stat 테이블에서 통계 조회 (ALL 또는 패턴)
+export const getGameStat = (statKey) => {
+  return apiCaller.get(`/api/v1/game/stat/${statKey}`);
 };
