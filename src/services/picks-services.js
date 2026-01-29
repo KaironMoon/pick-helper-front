@@ -27,6 +27,22 @@ export const addPattern = (prevPicks, nextPick = null) => {
 };
 
 // picks2 API
-export const getPick2ByPattern = (prevPicks) => {
-  return apiCaller.get(`/api/v1/picks2/pattern/${prevPicks}`);
+export const getPick2ByPattern = (prevPicks, prevResults = null) => {
+  const params = prevResults ? { prev_results: prevResults } : {};
+  return apiCaller.get(`/api/v1/picks2/pattern/${prevPicks}`, params);
+};
+
+// jcn/jck 보정 포함 픽 조회
+export const getPick2WithAdjustment = async (prevPicks, prevResults) => {
+  // 1차: 기본 픽 조회
+  const response = await getPick2ByPattern(prevPicks);
+
+  // nickname이 jcn/jck인 경우에만 재호출
+  const nickname = response?.data?.nickname?.toLowerCase();
+  if (nickname === 'jcn' || nickname === 'jck') {
+    // 2차: prev_results 포함해서 보정된 픽 조회
+    return getPick2ByPattern(prevPicks, prevResults);
+  }
+
+  return response;
 };

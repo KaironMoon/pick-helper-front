@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Box, Typography, Paper, useMediaQuery, useTheme } from "@mui/material";
 import { saveGameV2 } from "@/services/game-services";
-import { getPick2ByPattern } from "@/services/picks-services";
+import { getPick2WithAdjustment } from "@/services/picks-services";
 
 const GRID_ROWS = 6;
 const GRID_COLS = 42;
@@ -134,8 +134,8 @@ export default function GameT1Page() {
 
   const currentTurn = results.length + 1;
 
-  // 패턴으로 픽 조회 (picks2 테이블 사용)
-  const fetchPick = useCallback(async (pattern) => {
+  // 패턴으로 픽 조회 (picks2 테이블 사용, jcn/jck 보정 포함)
+  const fetchPick = useCallback(async (pattern, prevResults) => {
     if (!pattern) {
       setCurrentPick(null);
       setCurrentPick3([]);
@@ -146,7 +146,7 @@ export default function GameT1Page() {
       return;
     }
     try {
-      const response = await getPick2ByPattern(pattern);
+      const response = await getPick2WithAdjustment(pattern, prevResults);
       const pickCode = `${response.data.code1}-${response.data.code2}`;
       setCurrentPicksSeq(response.data.picks2_seq);
       setCurrentPickCode(pickCode);
@@ -230,10 +230,11 @@ export default function GameT1Page() {
       setPredictOrder(0);
       const newAllValues = newResults.map(r => r.value);
       if (newAllValues.length >= 1) {
+        const prevResults = newAllValues.join("");
         const newPattern = newAllValues.length >= 11
           ? newAllValues.slice(-11).join("")
-          : newAllValues.join("");
-        fetchPick(newPattern);
+          : prevResults;
+        fetchPick(newPattern, prevResults);
       }
     }
   };
