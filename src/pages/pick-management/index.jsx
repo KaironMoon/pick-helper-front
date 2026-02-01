@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Box, Typography, Paper, IconButton, TextField, useMediaQuery } from "@mui/material";
+import { Box, Typography, Paper, IconButton, TextField, useMediaQuery, CircularProgress } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { ArrowBack, ArrowForward } from "@mui/icons-material";
 
@@ -270,6 +270,9 @@ export default function PickManagementPage() {
   const [currentPick3, setCurrentPick3] = useState(["", "", ""]); // 3pick 배열
   const [currentPick6, setCurrentPick6] = useState(["", "", "", "", "", ""]); // 6pick 배열
   const [currentPickIndex, setCurrentPickIndex] = useState(0); // 현재 입력 위치
+  const [pickStat, setPickStat] = useState(null); // 선택된 패턴의 통계
+  const [recalculating, setRecalculating] = useState(false); // 통계 갱신 중
+  const [recalculateProgress, setRecalculateProgress] = useState(0); // 갱신 진행률
   const rowRefs = useRef({}); // 행 refs
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -324,6 +327,55 @@ export default function PickManagementPage() {
     setFormatRange(FORMAT_SEQUENCE[nextIndex]);
   };
 
+  // 통계 갱신 (SSE)
+  const handleRecalculateStats = () => {
+    if (recalculating) return;
+    setRecalculating(true);
+    setRecalculateProgress(0);
+
+    const eventSource = new EventSource("/api/v1/game/recalculate-stats/stream");
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      setRecalculateProgress(data.progress);
+
+      if (data.done) {
+        eventSource.close();
+        setRecalculating(false);
+        // 완료 시 현재 선택된 패턴의 통계 다시 조회
+        if (selectedPattern) {
+          fetchPickStat(selectedPattern);
+        }
+      }
+    };
+
+    eventSource.onerror = () => {
+      eventSource.close();
+      setRecalculating(false);
+      setRecalculateProgress(0);
+    };
+  };
+
+  // pick_stat 조회
+  const fetchPickStat = async (prevPicks) => {
+    if (!prevPicks) {
+      setPickStat(null);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/v1/picks2/stat/${prevPicks}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPickStat(data);
+      } else {
+        setPickStat(null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch pick stat:", error);
+      setPickStat(null);
+    }
+  };
+
   // 패턴 클릭 핸들러
   const handlePatternClick = (item) => {
     const code = item.code1 ? `${item.code1}-${item.code2}` : item.code;
@@ -341,6 +393,7 @@ export default function PickManagementPage() {
     setCurrentPick3(pick3 ? pick3.split("") : ["", "", ""]);
     setCurrentPick6(pick6 ? pick6.split("") : ["", "", "", "", "", ""]);
     setCurrentPickIndex(0);
+    fetchPickStat(prevPicks);
   };
 
   // 가져오기 버튼 핸들러 (코드 형식: A1-1, 1-29 또는 패턴 형식: BBBB, PPPP)
@@ -370,6 +423,7 @@ export default function PickManagementPage() {
           setCurrentPick3(pick3 ? pick3.split("") : ["", "", ""]);
           setCurrentPick6(pick6 ? pick6.split("") : ["", "", "", "", "", ""]);
           setCurrentPickIndex(0);
+          fetchPickStat(prevPicks);
 
           // 스크롤 대상 설정
           setScrollTargetCode(`${code1}-${code2}`);
@@ -421,6 +475,7 @@ export default function PickManagementPage() {
         setCurrentPick3(pick3 ? pick3.split("") : ["", "", ""]);
         setCurrentPick6(pick6 ? pick6.split("") : ["", "", "", "", "", ""]);
         setCurrentPickIndex(0);
+        fetchPickStat(prevPicks);
 
         // 스크롤 대상 설정
         setScrollTargetCode(`${code1}-${code2}`);
@@ -833,6 +888,23 @@ export default function PickManagementPage() {
             </Box>
             <Box sx={{ width: 32, height: 32, borderRadius: 1, border: "2px solid #b71c1c", backgroundColor: "#fe5050", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold" }}>B</Box>
           </Box>
+          {/* 통계 표시 */}
+          {pickStat && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+              <Typography sx={{ fontSize: 12, color: "text.secondary" }}>통계:</Typography>
+              <Typography sx={{ fontSize: 12 }}>
+                발생 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_total}</Box>
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: "#4caf50" }}>
+                적중 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_hit}</Box>
+                {pickStat.hit_rate !== null && `(${pickStat.hit_rate}%)`}
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: "#f44336" }}>
+                미스 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_miss}</Box>
+                {pickStat.miss_rate !== null && `(${pickStat.miss_rate}%)`}
+              </Typography>
+            </Box>
+          )}
         </Box>
 
         {/* 우측: 테이블 */}
@@ -844,6 +916,30 @@ export default function PickManagementPage() {
               <Typography variant="caption">{formatRange}-1~{formatRange}-{PATTERN_CONFIG[formatRange]?.count || 128}</Typography>
             </Box>
             <IconButton size="small" onClick={handleNextFormat}><ArrowForward sx={{ fontSize: 18 }} /></IconButton>
+            <Box
+              onClick={handleRecalculateStats}
+              sx={{
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: 1,
+                px: 1,
+                py: 0.25,
+                cursor: recalculating ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                minWidth: 60,
+                "&:hover": !recalculating ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
+              }}
+            >
+              {recalculating ? (
+                <>
+                  <CircularProgress size={10} sx={{ color: "#4caf50" }} />
+                  <Typography sx={{ fontSize: 9, color: "#4caf50" }}>{recalculateProgress}%</Typography>
+                </>
+              ) : (
+                <Typography sx={{ fontSize: 9 }}>통계갱신</Typography>
+              )}
+            </Box>
           </Box>
           <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", display: "flex", flexDirection: "column" }}>
           {/* 테이블 헤더 */}
@@ -993,6 +1089,23 @@ export default function PickManagementPage() {
             <Box sx={{ width: 36, height: 36, borderRadius: 1, border: "2px solid #b71c1c", backgroundColor: "#fe5050", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold" }}>B</Box>
           </Box>
         </Box>
+        {/* 통계 표시 */}
+        {pickStat && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>통계:</Typography>
+            <Typography variant="body2">
+              발생 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_total}</Box>
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#4caf50" }}>
+              적중 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_hit}</Box>
+              {pickStat.hit_rate !== null && `(${pickStat.hit_rate}%)`}
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#f44336" }}>
+              미스 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_miss}</Box>
+              {pickStat.miss_rate !== null && `(${pickStat.miss_rate}%)`}
+            </Typography>
+          </Box>
+        )}
         {/* 서식 범위 선택 */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <IconButton size="small" onClick={handlePrevFormat}><ArrowBack sx={{ fontSize: 20 }} /></IconButton>
@@ -1000,6 +1113,30 @@ export default function PickManagementPage() {
             <Typography variant="body2">{formatRange}-1~{formatRange}-{PATTERN_CONFIG[formatRange]?.count || 128}</Typography>
           </Box>
           <IconButton size="small" onClick={handleNextFormat}><ArrowForward sx={{ fontSize: 20 }} /></IconButton>
+          <Box
+            onClick={handleRecalculateStats}
+            sx={{
+              border: "1px solid rgba(255,255,255,0.3)",
+              borderRadius: 1,
+              px: 1.5,
+              py: 0.5,
+              cursor: recalculating ? "default" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              minWidth: 80,
+              "&:hover": !recalculating ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
+            }}
+          >
+            {recalculating ? (
+              <>
+                <CircularProgress size={12} sx={{ color: "#4caf50" }} />
+                <Typography variant="caption" sx={{ color: "#4caf50" }}>{recalculateProgress}%</Typography>
+              </>
+            ) : (
+              <Typography variant="caption">통계갱신</Typography>
+            )}
+          </Box>
         </Box>
         {/* 테이블 */}
         <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", display: "flex", flexDirection: "column", alignSelf: "stretch" }}>
@@ -1355,6 +1492,32 @@ export default function PickManagementPage() {
         </Box>
       </Box>
 
+      {/* 통계 표시 */}
+      {pickStat && (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            통계:
+          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="body2">
+              발생 <Box component="span" sx={{ fontWeight: "bold", color: "#fff" }}>{pickStat.stat_total}</Box>회
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#4caf50" }}>
+              적중 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_hit}</Box>회
+              {pickStat.hit_rate !== null && (
+                <Box component="span" sx={{ ml: 0.5 }}>({pickStat.hit_rate}%)</Box>
+              )}
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#f44336" }}>
+              미스 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_miss}</Box>회
+              {pickStat.miss_rate !== null && (
+                <Box component="span" sx={{ ml: 0.5 }}>({pickStat.miss_rate}%)</Box>
+              )}
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
       {/* 서식 범위 선택 */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
         <IconButton size="small" onClick={handlePrevFormat}>
@@ -1375,6 +1538,30 @@ export default function PickManagementPage() {
         <IconButton size="small" onClick={handleNextFormat}>
           <ArrowForward />
         </IconButton>
+        <Box
+          onClick={handleRecalculateStats}
+          sx={{
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: 1,
+            px: 1.5,
+            py: 0.5,
+            cursor: recalculating ? "default" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            minWidth: 80,
+            "&:hover": !recalculating ? { backgroundColor: "rgba(255,255,255,0.1)" } : {},
+          }}
+        >
+          {recalculating ? (
+            <>
+              <CircularProgress size={12} sx={{ color: "#4caf50" }} />
+              <Typography variant="caption" sx={{ color: "#4caf50" }}>{recalculateProgress}%</Typography>
+            </>
+          ) : (
+            <Typography variant="caption">통계갱신</Typography>
+          )}
+        </Box>
       </Box>
       </Box>
 

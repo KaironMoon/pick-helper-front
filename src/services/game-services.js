@@ -50,3 +50,16 @@ export const recalculateGameStats = () => {
 export const getGameStat = (statKey) => {
   return apiCaller.get(`/api/v1/game/stat/${statKey}`);
 };
+
+// 페이지네이션 API (서버사이드)
+export const getGamesPaginated = (page = 1, pageSize = 10, streakFilter = null) => {
+  const params = { page, page_size: pageSize };
+  if (streakFilter) params.streak_filter = streakFilter;
+  return apiCaller.get("/api/v1/game/paginated", params);
+};
+
+export const getGamesByPatternPaginated = (pattern, page = 1, pageSize = 10, streakFilter = null) => {
+  const params = { page, page_size: pageSize };
+  if (streakFilter) params.streak_filter = streakFilter;
+  return apiCaller.get(`/api/v1/game/by-pattern/${pattern}/paginated`, params);
+};

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Paper, IconButton, Select, MenuItem, useMediaQuery, useTheme, CircularProgress } from "@mui/material";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import ArrowForward from "@mui/icons-material/ArrowForward";
-import { getGamesByPattern, deleteGame, getGameV2, getAllGamesWithStats, getGameStat } from "@/services/game-services";
+import { deleteGame, getGameV2, getGameStat, getGamesPaginated, getGamesByPatternPaginated } from "@/services/game-services";
 
 const GRID_ROWS = 6;
 const GRID_COLS = 42;
@@ -163,38 +163,6 @@ const calculateCircleGrid = (shoes, turns = []) => {
   return grid;
 };
 
-// 미니 격자 컴포넌트 (테이블용)
-const MiniGrid = ({ shoes }) => {
-  const grid = calculateCircleGrid(shoes);
-  const cellSize = 8;
-
-  return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${GRID_COLS}, ${cellSize}px)`,
-        gridTemplateRows: `repeat(${GRID_ROWS}, ${cellSize}px)`,
-        gap: "1px",
-        backgroundColor: "rgba(255,255,255,0.1)",
-      }}
-    >
-      {grid.map((row, rowIndex) =>
-        row.map((cell, colIndex) => (
-          <Box
-            key={`${rowIndex}-${colIndex}`}
-            sx={{
-              width: cellSize,
-              height: cellSize,
-              backgroundColor: cell ? (cell.type === "P" ? "#1565c0" : "#f44336") : "transparent",
-              borderRadius: "50%",
-            }}
-          />
-        ))
-      )}
-    </Box>
-  );
-};
-
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 const STORAGE_KEY = "gamedata_page_size";
 
@@ -203,10 +171,12 @@ export default function GamedataPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const [patternIndex, setPatternIndex] = useState(0);
-  const [allGames, setAllGames] = useState([]);
+  const [games, setGames] = useState([]);
   const [selectedGameIndex, setSelectedGameIndex] = useState(null);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? parseInt(saved, 10) : 10;
@@ -214,8 +184,8 @@ export default function GamedataPage() {
   const [selectedGameTurns, setSelectedGameTurns] = useState([]);
   const [recalculating, setRecalculating] = useState(false);
   const [recalcProgress, setRecalcProgress] = useState(0);
-  const [streakFilter, setStreakFilter] = useState(null); // 연패 필터 (4~14 또는 null)
-  const [patternStat, setPatternStat] = useState(null); // game_stat 테이블 데이터
+  const [patternStat, setPatternStat] = useState(null);
+  const [streakFilter, setStreakFilter] = useState(null); // 연패 필터 (4~14 또는 "15+")
 
   // 통계 재계산 (SSE)
   const handleRecalculateStats = () => {
@@ -235,7 +205,7 @@ export default function GamedataPage() {
         eventSource.close();
         setRecalculating(false);
         alert(`완료: ${data.total}개 게임 업데이트`);
-        fetchGamesByPattern(currentPattern.pattern);
+        fetchGames(currentPattern.pattern, currentPage, streakFilter);
         fetchPatternStat(currentPattern.pattern);
       }
     };
@@ -264,54 +234,47 @@ export default function GamedataPage() {
       .reduce((sum, [, v]) => sum + v, 0);
   };
 
-  // 연패 필터 적용
-  const filteredGames = streakFilter
-    ? allGames.filter(g => {
-        if (streakFilter === "폭") {
-          return get15PlusStreaks(g.streaks) > 0;
-        }
-        return g.streaks && g.streaks[streakFilter] > 0;
-      })
-    : allGames;
-
-  // 페이지네이션 계산
-  const totalPages = Math.ceil(filteredGames.length / itemsPerPage);
-  const games = filteredGames.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
   // 선택된 게임
-  const selectedGame = selectedGameIndex !== null ? filteredGames[selectedGameIndex] : null;
+  const selectedGame = selectedGameIndex !== null ? games[selectedGameIndex] : null;
 
   // 연패 필터 토글
   const handleStreakFilter = (n) => {
     if (streakFilter === n) {
       setStreakFilter(null);
     } else {
+      // "폭"은 서버에 "15+"로 전송
       setStreakFilter(n);
     }
     setCurrentPage(1);
     setSelectedGameIndex(null);
   };
 
-  // 패턴별 게임 목록 조회
-  const fetchGamesByPattern = useCallback(async (pattern) => {
+  // 서버에서 게임 목록 조회 (페이지네이션)
+  const fetchGames = useCallback(async (pattern, page, streak) => {
     setLoading(true);
     try {
+      // "폭"은 서버에 "15+"로 전송
+      const serverStreakFilter = streak === "폭" ? "15+" : streak;
       let response;
       if (pattern === "ALL") {
-        response = await getAllGamesWithStats(500);
+        response = await getGamesPaginated(page, itemsPerPage, serverStreakFilter);
       } else {
-        response = await getGamesByPattern(pattern, 500);
+        response = await getGamesByPatternPaginated(pattern, page, itemsPerPage, serverStreakFilter);
       }
-      setAllGames(response.data || []);
-      setCurrentPage(1);
+      const data = response.data;
+      setGames(data.items || []);
+      setTotalPages(data.total_pages || 1);
+      setTotalCount(data.total_count || 0);
       setSelectedGameIndex(null);
       setSelectedGameTurns([]);
     } catch (error) {
       console.error("Failed to fetch games:", error);
-      setAllGames([]);
+      setGames([]);
+      setTotalPages(1);
+      setTotalCount(0);
     }
     setLoading(false);
-  }, []);
+  }, [itemsPerPage]);
 
   // 패턴 통계 조회 (game_stat 테이블)
   const fetchPatternStat = useCallback(async (pattern) => {
@@ -324,33 +287,37 @@ export default function GamedataPage() {
     }
   }, []);
 
-  // 패턴 변경시 데이터 조회
+  // 패턴 또는 페이지 변경시 데이터 조회
   useEffect(() => {
-    fetchGamesByPattern(currentPattern.pattern);
+    fetchGames(currentPattern.pattern, currentPage, streakFilter);
+  }, [patternIndex, currentPage, itemsPerPage, streakFilter, fetchGames, currentPattern.pattern]);
+
+  // 패턴 변경시 통계 조회
+  useEffect(() => {
     fetchPatternStat(currentPattern.pattern);
-  }, [patternIndex, fetchGamesByPattern, fetchPatternStat, currentPattern.pattern]);
+  }, [patternIndex, fetchPatternStat, currentPattern.pattern]);
 
   // 이전 패턴
   const handlePrevPattern = () => {
     setPatternIndex((prev) => (prev > 0 ? prev - 1 : PATTERNS.length - 1));
+    setCurrentPage(1);
   };
 
   // 다음 패턴
   const handleNextPattern = () => {
     setPatternIndex((prev) => (prev < PATTERNS.length - 1 ? prev + 1 : 0));
+    setCurrentPage(1);
   };
 
   // 게임 선택
   const handleGameSelect = async (index) => {
-    const globalIndex = (currentPage - 1) * itemsPerPage + index;
-    setSelectedGameIndex(globalIndex);
+    setSelectedGameIndex(index);
 
     // 게임 상세 조회 (turns 포함)
-    const game = filteredGames[globalIndex];
+    const game = games[index];
     if (game) {
       try {
         const response = await getGameV2(game.game_seq);
-        console.log("Game detail response:", response.data);
         setSelectedGameTurns(response.data?.turns || []);
       } catch (error) {
         console.error("Failed to fetch game detail:", error);
@@ -367,7 +334,7 @@ export default function GamedataPage() {
     try {
       await deleteGame(selectedGame.game_seq);
       // 목록 새로고침
-      fetchGamesByPattern(currentPattern.pattern);
+      fetchGames(currentPattern.pattern, currentPage);
     } catch (error) {
       console.error("Failed to delete game:", error);
       alert("삭제 실패");
@@ -376,9 +343,6 @@ export default function GamedataPage() {
 
   // 선택된 게임의 격자
   const grid = selectedGame ? calculateCircleGrid(selectedGame.shoes, selectedGameTurns) : calculateCircleGrid("");
-
-  // 통계 계산 (임시 - turns 데이터 필요)
-  const totalCount = allGames.length;
 
   return (
     <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1 }}>
@@ -512,6 +476,9 @@ export default function GamedataPage() {
             borderBottom: "1px solid rgba(255,255,255,0.1)",
           }}
         >
+          <Typography variant="caption" sx={{ mr: 1, color: "text.secondary" }}>
+            {totalCount}건
+          </Typography>
           <Box
             onClick={() => currentPage > 1 && setCurrentPage(1)}
             sx={{
@@ -649,8 +616,7 @@ export default function GamedataPage() {
             </Box>
           ) : games.length > 0 ? (
             games.map((game, index) => {
-              const globalIndex = (currentPage - 1) * itemsPerPage + index;
-              const isSelected = selectedGameIndex === globalIndex;
+              const isSelected = selectedGameIndex === index;
               const streaks = game.streaks || {};
 
               return (
