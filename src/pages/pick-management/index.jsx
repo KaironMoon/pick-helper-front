@@ -511,8 +511,10 @@ export default function PickManagementPage() {
       });
 
       if (response.ok) {
-        // 거울상 패턴도 서버에서 업데이트되므로 목록 다시 가져오기
-        await fetchPatterns(false);
+        // 로컬 업데이트
+        setPatterns(prev => prev.map(p =>
+          String(p.code2) === code2 ? { ...p, nickname: dlNickname } : p
+        ));
       }
     } catch (error) {
       console.error("Failed to save nickname:", error);
@@ -540,8 +542,10 @@ export default function PickManagementPage() {
 
         if (response.ok) {
           setCurrentPick1(pick);
-          // 거울상 패턴도 서버에서 업데이트되므로 목록 다시 가져오기
-          await fetchPatterns(false);
+          // 로컬 업데이트
+          setPatterns(prev => prev.map(p =>
+            String(p.code2) === code2 ? { ...p, next_pick_1: pick } : p
+          ));
         }
       } catch (error) {
         console.error("Failed to save 1pick:", error);
@@ -562,8 +566,10 @@ export default function PickManagementPage() {
         });
 
         if (response.ok) {
-          // 거울상 패턴도 서버에서 업데이트되므로 목록 다시 가져오기
-          await fetchPatterns(false);
+          // 로컬 업데이트
+          setPatterns(prev => prev.map(p =>
+            String(p.code2) === code2 ? { ...p, next_pick_3: pickStr } : p
+          ));
         }
       } catch (error) {
         console.error("Failed to save 3pick:", error);
@@ -584,8 +590,10 @@ export default function PickManagementPage() {
         });
 
         if (response.ok) {
-          // 거울상 패턴도 서버에서 업데이트되므로 목록 다시 가져오기
-          await fetchPatterns(false);
+          // 로컬 업데이트
+          setPatterns(prev => prev.map(p =>
+            String(p.code2) === code2 ? { ...p, next_pick_6: pickStr } : p
+          ));
         }
       } catch (error) {
         console.error("Failed to save 6pick:", error);
@@ -621,9 +629,10 @@ export default function PickManagementPage() {
           setCurrentPick6(["", "", "", "", "", ""]);
         }
         setCurrentPickIndex(0);
-
-        // 거울상 패턴도 서버에서 업데이트되므로 목록 다시 가져오기
-        await fetchPatterns(false);
+        // 로컬 업데이트
+        setPatterns(prev => prev.map(p =>
+          String(p.code2) === code2 ? { ...p, [fieldName]: null } : p
+        ));
       }
     } catch (error) {
       console.error("Failed to delete pick:", error);
