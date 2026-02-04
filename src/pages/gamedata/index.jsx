@@ -226,12 +226,10 @@ export default function GamedataPage() {
 
   const currentPattern = PATTERNS[patternIndex];
 
-  // 15+ 연패 합계 계산
-  const get15PlusStreaks = (streaks) => {
+  // 15+ 연패 카운트
+  const get15PlusCount = (streaks) => {
     if (!streaks) return 0;
-    return Object.entries(streaks)
-      .filter(([k]) => parseInt(k) >= 15)
-      .reduce((sum, [, v]) => sum + v, 0);
+    return streaks["15+_count"] || 0;
   };
 
   // 선택된 게임
@@ -242,7 +240,6 @@ export default function GamedataPage() {
     if (streakFilter === n) {
       setStreakFilter(null);
     } else {
-      // "폭"은 서버에 "15+"로 전송
       setStreakFilter(n);
     }
     setCurrentPage(1);
@@ -253,13 +250,11 @@ export default function GamedataPage() {
   const fetchGames = useCallback(async (pattern, page, streak) => {
     setLoading(true);
     try {
-      // "폭"은 서버에 "15+"로 전송
-      const serverStreakFilter = streak === "폭" ? "15+" : streak;
       let response;
       if (pattern === "ALL") {
-        response = await getGamesPaginated(page, itemsPerPage, serverStreakFilter);
+        response = await getGamesPaginated(page, itemsPerPage, streak);
       } else {
-        response = await getGamesByPatternPaginated(pattern, page, itemsPerPage, serverStreakFilter);
+        response = await getGamesByPatternPaginated(pattern, page, itemsPerPage, streak);
       }
       const data = response.data;
       setGames(data.items || []);
@@ -585,23 +580,23 @@ export default function GamedataPage() {
           <Typography variant="caption" sx={{ width: 70, textAlign: "center" }}>
             T-H-M
           </Typography>
-          {[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, "폭"].map((n) => (
+          {[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, "15+", "7+7"].map((n) => (
             <Box
               key={n}
               onClick={() => handleStreakFilter(n)}
               sx={{
-                width: 22,
+                width: n === "15+" || n === "7+7" ? 28 : 22,
                 textAlign: "center",
                 cursor: "pointer",
                 border: streakFilter === n ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
                 borderRadius: 0.5,
                 py: 0.25,
                 backgroundColor: streakFilter === n ? "rgba(76, 175, 80, 0.2)" : "transparent",
-                color: streakFilter === n ? "#4caf50" : n === "폭" ? "#f44336" : "text.primary",
+                color: streakFilter === n ? "#4caf50" : (n === "15+" || n === "7+7") ? "#f44336" : "text.primary",
                 "&:hover": { backgroundColor: streakFilter === n ? "rgba(76, 175, 80, 0.3)" : "rgba(255,255,255,0.1)" },
               }}
             >
-              <Typography variant="caption">{n}</Typography>
+              <Typography variant="caption">{n === "7+7" ? "폭" : n}</Typography>
             </Box>
           ))}
         </Box>
@@ -664,13 +659,24 @@ export default function GamedataPage() {
                   <Typography
                     variant="caption"
                     sx={{
-                      width: 22,
+                      width: 28,
                       textAlign: "center",
-                      color: get15PlusStreaks(streaks) ? "#f44336" : "text.secondary",
-                      fontWeight: get15PlusStreaks(streaks) ? "bold" : "normal",
+                      color: get15PlusCount(streaks) ? "#f44336" : "text.secondary",
+                      fontWeight: get15PlusCount(streaks) ? "bold" : "normal",
                     }}
                   >
-                    {get15PlusStreaks(streaks)}
+                    {get15PlusCount(streaks)}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      width: 28,
+                      textAlign: "center",
+                      color: game.is_pok ? "#f44336" : "text.secondary",
+                      fontWeight: game.is_pok ? "bold" : "normal",
+                    }}
+                  >
+                    {game.is_pok ? "1" : "-"}
                   </Typography>
                 </Box>
               );

@@ -3,13 +3,14 @@ import { Box, Typography, Paper, IconButton, TextField, useMediaQuery, CircularP
 import { useTheme } from "@mui/material/styles";
 import { ArrowBack, ArrowForward } from "@mui/icons-material";
 
-// 순회 순서: A1 → B1 → C1 → D1 → E1 → E2 → F1~F4 → G1~G8 → 1~16 → A1
+// 순회 순서: A1 → B1 → C1 → D1 → E1 → E2 → F1~F4 → G1~G8 → 1~8 → A1
+// (9~16은 1~8의 거울상이므로 제외)
 const FORMAT_SEQUENCE = [
   "A1", "B1", "C1", "D1",
   "E1", "E2",
   "F1", "F2", "F3", "F4",
   "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8",
-  "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"
+  "1", "2", "3", "4", "5", "6", "7", "8"
 ];
 
 // 각 code1별 패턴 정보
@@ -132,6 +133,12 @@ const PickCircle = ({ type, size = 24 }) => {
       />
     </Box>
   );
+};
+
+// 거울상 패턴 생성 (P↔B 스왑)
+const getMirrorPattern = (pattern) => {
+  if (!pattern) return "";
+  return pattern.split("").map(c => c === "P" ? "B" : "P").join("");
 };
 
 // 패턴 생성 함수
@@ -258,6 +265,7 @@ const calculateCircleGrid = (prevPicks, gridRows, gridCols, nextPicks = []) => {
 
 export default function PickManagementPage() {
   const [formatRange, setFormatRange] = useState("A1"); // A1부터 시작
+  const [half, setHalf] = useState(1); // 1=전반(1-64), 2=후반(65-128), 11자리 패턴(1~8)에만 적용
   const [fetchCode, setFetchCode] = useState("");
   const [selectedTab, setSelectedTab] = useState("1pick");
   const [patterns, setPatterns] = useState([]);
@@ -278,11 +286,23 @@ export default function PickManagementPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isLandscape = useMediaQuery("(orientation: landscape)");
 
+  // 128개 패턴으로 절반 분할이 필요한지 확인 (code1이 1~8 또는 G1~G8)
+  const shouldSplitIntoHalves = (code1) => {
+    // 숫자 1~8 (11자리 패턴)
+    const num = parseInt(code1, 10);
+    if (!isNaN(num) && num >= 1 && num <= 8) return true;
+    // G1~G8 (10자리 패턴)
+    if (typeof code1 === "string" && /^G[1-8]$/.test(code1)) return true;
+    return false;
+  };
+
   // API에서 picks2 데이터 로드 (재사용 가능한 함수)
   const fetchPatterns = async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const response = await fetch(`/api/v1/picks2/list/${formatRange}`);
+      // 11자리 패턴(1~8)인 경우 half 파라미터 추가
+      const halfParam = shouldSplitIntoHalves(formatRange) ? `?half=${half}` : "";
+      const response = await fetch(`/api/v1/picks2/list/${formatRange}${halfParam}`);
       if (response.ok) {
         const data = await response.json();
         setPatterns(data);
@@ -298,10 +318,10 @@ export default function PickManagementPage() {
     if (showLoading) setLoading(false);
   };
 
-  // 초기 로드 및 formatRange 변경 시
+  // 초기 로드 및 formatRange/half 변경 시
   useEffect(() => {
     fetchPatterns();
-  }, [formatRange]);
+  }, [formatRange, half]);
 
   // 스크롤 대상으로 이동
   useEffect(() => {
@@ -317,14 +337,81 @@ export default function PickManagementPage() {
 
   const handlePrevFormat = () => {
     const currentIndex = FORMAT_SEQUENCE.indexOf(String(formatRange));
-    const prevIndex = currentIndex <= 0 ? FORMAT_SEQUENCE.length - 1 : currentIndex - 1;
-    setFormatRange(FORMAT_SEQUENCE[prevIndex]);
+
+    // 11자리 패턴(1~8)인 경우: half도 고려
+    if (shouldSplitIntoHalves(formatRange)) {
+      if (half === 2) {
+        // 후반 → 전반
+        setHalf(1);
+        return;
+      } else {
+        // 전반 → 이전 범위의 후반
+        if (currentIndex <= 0) {
+          // 맨 앞이면 맨 뒤로
+          const lastFormat = FORMAT_SEQUENCE[FORMAT_SEQUENCE.length - 1];
+          setFormatRange(lastFormat);
+          if (shouldSplitIntoHalves(lastFormat)) {
+            setHalf(2);
+          }
+        } else {
+          const prevFormat = FORMAT_SEQUENCE[currentIndex - 1];
+          setFormatRange(prevFormat);
+          if (shouldSplitIntoHalves(prevFormat)) {
+            setHalf(2);
+          }
+        }
+        return;
+      }
+    }
+
+    // 비-11자리 패턴: 이전 범위로 이동
+    if (currentIndex <= 0) {
+      const lastFormat = FORMAT_SEQUENCE[FORMAT_SEQUENCE.length - 1];
+      setFormatRange(lastFormat);
+      if (shouldSplitIntoHalves(lastFormat)) {
+        setHalf(2);
+      }
+    } else {
+      const prevFormat = FORMAT_SEQUENCE[currentIndex - 1];
+      setFormatRange(prevFormat);
+      if (shouldSplitIntoHalves(prevFormat)) {
+        setHalf(2);
+      }
+    }
   };
 
   const handleNextFormat = () => {
     const currentIndex = FORMAT_SEQUENCE.indexOf(String(formatRange));
-    const nextIndex = currentIndex >= FORMAT_SEQUENCE.length - 1 ? 0 : currentIndex + 1;
-    setFormatRange(FORMAT_SEQUENCE[nextIndex]);
+
+    // 11자리 패턴(1~8)인 경우: half도 고려
+    if (shouldSplitIntoHalves(formatRange)) {
+      if (half === 1) {
+        // 전반 → 후반
+        setHalf(2);
+        return;
+      } else {
+        // 후반 → 다음 범위의 전반
+        if (currentIndex >= FORMAT_SEQUENCE.length - 1) {
+          setFormatRange(FORMAT_SEQUENCE[0]);
+        } else {
+          setFormatRange(FORMAT_SEQUENCE[currentIndex + 1]);
+        }
+        setHalf(1);
+        return;
+      }
+    }
+
+    // 비-11자리 패턴: 다음 범위로 이동
+    if (currentIndex >= FORMAT_SEQUENCE.length - 1) {
+      setFormatRange(FORMAT_SEQUENCE[0]);
+      setHalf(1);
+    } else {
+      const nextFormat = FORMAT_SEQUENCE[currentIndex + 1];
+      setFormatRange(nextFormat);
+      if (shouldSplitIntoHalves(nextFormat)) {
+        setHalf(1);
+      }
+    }
   };
 
   // 통계 갱신 (SSE)
@@ -542,10 +629,7 @@ export default function PickManagementPage() {
 
         if (response.ok) {
           setCurrentPick1(pick);
-          // 로컬 업데이트
-          setPatterns(prev => prev.map(p =>
-            String(p.code2) === code2 ? { ...p, next_pick_1: pick } : p
-          ));
+          fetchPatterns(false);
         }
       } catch (error) {
         console.error("Failed to save 1pick:", error);
@@ -566,10 +650,7 @@ export default function PickManagementPage() {
         });
 
         if (response.ok) {
-          // 로컬 업데이트
-          setPatterns(prev => prev.map(p =>
-            String(p.code2) === code2 ? { ...p, next_pick_3: pickStr } : p
-          ));
+          fetchPatterns(false);
         }
       } catch (error) {
         console.error("Failed to save 3pick:", error);
@@ -590,10 +671,7 @@ export default function PickManagementPage() {
         });
 
         if (response.ok) {
-          // 로컬 업데이트
-          setPatterns(prev => prev.map(p =>
-            String(p.code2) === code2 ? { ...p, next_pick_6: pickStr } : p
-          ));
+          fetchPatterns(false);
         }
       } catch (error) {
         console.error("Failed to save 6pick:", error);
@@ -629,13 +707,34 @@ export default function PickManagementPage() {
           setCurrentPick6(["", "", "", "", "", ""]);
         }
         setCurrentPickIndex(0);
-        // 로컬 업데이트
-        setPatterns(prev => prev.map(p =>
-          String(p.code2) === code2 ? { ...p, [fieldName]: null } : p
-        ));
+        fetchPatterns(false);
       }
     } catch (error) {
       console.error("Failed to delete pick:", error);
+    }
+  };
+
+  // Mirror 적용 (현재 픽을 거울상 패턴에 반대로 복사)
+  const handleApplyMirror = async () => {
+    if (!fetchCode) return;
+
+    const parts = fetchCode.split("-");
+    if (parts.length !== 2) return;
+
+    const code1 = parts[0];
+    const code2 = parts[1];
+
+    try {
+      const response = await fetch(`/api/v1/picks2/apply-mirror/${code1}/${code2}`, {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        // 거울상 패턴 업데이트되었으므로 리스트 리로드
+        fetchPatterns(false);
+      }
+    } catch (error) {
+      console.error("Failed to apply mirror:", error);
     }
   };
 
@@ -922,7 +1021,12 @@ export default function PickManagementPage() {
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
             <IconButton size="small" onClick={handlePrevFormat}><ArrowBack sx={{ fontSize: 18 }} /></IconButton>
             <Box sx={{ border: "1px solid rgba(255,255,255,0.3)", borderRadius: 1, px: 1, py: 0.25 }}>
-              <Typography variant="caption">{formatRange}-1~{formatRange}-{PATTERN_CONFIG[formatRange]?.count || 128}</Typography>
+              <Typography variant="caption">
+                {shouldSplitIntoHalves(formatRange)
+                  ? `${formatRange}-${half === 1 ? "1" : "65"} ~ ${formatRange}-${half === 1 ? "64" : "128"}`
+                  : `${formatRange}-1~${formatRange}-${PATTERN_CONFIG[formatRange]?.count || 128}`
+                }
+              </Typography>
             </Box>
             <IconButton size="small" onClick={handleNextFormat}><ArrowForward sx={{ fontSize: 18 }} /></IconButton>
             <Box
@@ -1119,7 +1223,12 @@ export default function PickManagementPage() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <IconButton size="small" onClick={handlePrevFormat}><ArrowBack sx={{ fontSize: 20 }} /></IconButton>
           <Box sx={{ border: "1px solid rgba(255,255,255,0.3)", borderRadius: 1, px: 1.5, py: 0.5 }}>
-            <Typography variant="body2">{formatRange}-1~{formatRange}-{PATTERN_CONFIG[formatRange]?.count || 128}</Typography>
+            <Typography variant="body2">
+              {shouldSplitIntoHalves(formatRange)
+                ? `${formatRange}-${half === 1 ? "1" : "65"} ~ ${formatRange}-${half === 1 ? "64" : "128"}`
+                : `${formatRange}-1~${formatRange}-${PATTERN_CONFIG[formatRange]?.count || 128}`
+              }
+            </Typography>
           </Box>
           <IconButton size="small" onClick={handleNextFormat}><ArrowForward sx={{ fontSize: 20 }} /></IconButton>
           <Box
@@ -1356,6 +1465,24 @@ export default function PickManagementPage() {
             >
               <Typography sx={{ fontSize: isMobile ? 13 : 13 }}>삭제</Typography>
             </Box>
+            {/* Mirror 버튼 (거울상 패턴에 반대 픽 복사) */}
+            <Box
+              onClick={handleApplyMirror}
+              sx={{
+                px: isMobile ? 1 : 2,
+                height: isMobile ? 64 : 45,
+                border: "1px solid #9c27b0",
+                borderRadius: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: fetchCode ? "pointer" : "default",
+                opacity: fetchCode ? 1 : 0.5,
+                "&:hover": fetchCode ? { backgroundColor: "rgba(156, 39, 176, 0.2)" } : {},
+              }}
+            >
+              <Typography sx={{ fontSize: isMobile ? 13 : 13, color: "#ce93d8" }}>Mirror</Typography>
+            </Box>
           </Box>
 
           {/* Row 2: 입력필드, 가져오기, DL */}
@@ -1542,7 +1669,12 @@ export default function PickManagementPage() {
             textAlign: "center",
           }}
         >
-          <Typography variant="body2">{formatRange}-1~{formatRange}-{PATTERN_CONFIG[formatRange]?.count || 128}</Typography>
+          <Typography variant="body2">
+            {shouldSplitIntoHalves(formatRange)
+              ? `${formatRange}-${half === 1 ? "1" : "65"} ~ ${formatRange}-${half === 1 ? "64" : "128"}`
+              : `${formatRange}-1~${formatRange}-${PATTERN_CONFIG[formatRange]?.count || 128}`
+            }
+          </Typography>
         </Box>
         <IconButton size="small" onClick={handleNextFormat}>
           <ArrowForward />
