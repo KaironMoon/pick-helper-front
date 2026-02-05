@@ -230,10 +230,13 @@ export default function GameT1Page() {
       setPredictOrder(0);
       const newAllValues = newResults.map(r => r.value);
       if (newAllValues.length >= 1) {
-        const prevResults = newAllValues.join("");
         const newPattern = newAllValues.length >= 11
           ? newAllValues.slice(-11).join("")
-          : prevResults;
+          : newAllValues.join("");
+        // prev_results: 11픽 패턴 앞에 있는 결과만 전달 (조건 패턴 매칭용)
+        const prevResults = newAllValues.length > 11
+          ? newAllValues.slice(0, -11).join("")
+          : "";
         fetchPick(newPattern, prevResults);
       }
     }
