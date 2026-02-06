@@ -906,7 +906,7 @@ export default function PickManagementPage() {
     return (
       <Box sx={{ p: 1, height: "100%", display: "flex", gap: 1, overflow: "hidden" }}>
         {/* 좌측: 격자 + 입력 - 고정 너비 */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, flexShrink: 0, alignItems: "flex-start", width: 360, overflow: "hidden" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flexShrink: 0, alignItems: "flex-start", width: 360, overflow: "hidden" }}>
           {/* 격자 */}
           {GridComponentSmall}
           {/* 입력 컨트롤 - 3픽 기준 높이 고정 */}
@@ -1065,18 +1065,60 @@ export default function PickManagementPage() {
               }}
             />
           </Box>
-          {/* P/B 퍼센트 */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <Box sx={{ width: 32, height: 32, borderRadius: 1, border: "2px solid #0d47a1", backgroundColor: "#3399fe", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold" }}>P</Box>
-            <Box sx={{ display: "flex", width: 80 }}>
-              <Box sx={{ flex: 1, height: 32, backgroundColor: "#3399fe", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Typography sx={{ color: "#fff", fontSize: 11 }}>-%</Typography>
-              </Box>
-              <Box sx={{ flex: 1, height: 32, backgroundColor: "#fe5050", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Typography sx={{ color: "#fff", fontSize: 11 }}>-%</Typography>
+          {/* 조건 패턴 - 가로모드 (두 줄) */}
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+            {/* 조건 패턴 1 */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              {[...Array(8)].map((_, idx) => {
+                const char = condPattern1[idx];
+                const isP = char === "P";
+                const isB = char === "B";
+                return (
+                  <Box key={`l-cond1-${idx}`} sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                    <Box onClick={() => { if (!fetchCode) return; let arr = condPattern1.padEnd(12, " ").split(""); arr[idx] = isP ? " " : "P"; const trimmed = arr.join("").replace(/ +$/, ""); setCondPattern1(trimmed); handleCondPatternSave(1, "pattern", trimmed); }}
+                      sx={{ width: 28, height: 28, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: isP ? "#1565c0" : "#fff", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>
+                      {isP && <Typography sx={{ fontSize: 11, fontWeight: "bold", color: "#fff" }}>P</Typography>}
+                    </Box>
+                    <Box onClick={() => { if (!fetchCode) return; let arr = condPattern1.padEnd(12, " ").split(""); arr[idx] = isB ? " " : "B"; const trimmed = arr.join("").replace(/ +$/, ""); setCondPattern1(trimmed); handleCondPatternSave(1, "pattern", trimmed); }}
+                      sx={{ width: 28, height: 28, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: isB ? "#f44336" : "#fff", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>
+                      {isB && <Typography sx={{ fontSize: 11, fontWeight: "bold", color: "#fff" }}>B</Typography>}
+                    </Box>
+                  </Box>
+                );
+              })}
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, ml: 0.5 }}>
+                <Box onClick={() => { if (!fetchCode) return; const newValue = !condEnabled1; if (newValue) { const pattern = condPattern1.replace(/ +$/, ""); if (!pattern) { alert("패턴을 입력하세요."); return; } if (pattern.includes(" ")) { alert("패턴이 끊어져 있습니다."); return; } } setCondEnabled1(newValue); handleCondPatternSave(1, "enabled", newValue); }}
+                  sx={{ px: 1, height: 28, fontSize: 11, borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", border: condEnabled1 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)", backgroundColor: condEnabled1 ? "rgba(76, 175, 80, 0.15)" : "transparent", color: condEnabled1 ? "#4caf50" : "rgba(255,255,255,0.5)", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>Y</Box>
+                <Box onClick={() => { if (!fetchCode) return; setCondReverse1(!condReverse1); handleCondPatternSave(1, "reverse", !condReverse1); }}
+                  sx={{ px: 1, height: 28, fontSize: 11, borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", border: condReverse1 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)", backgroundColor: condReverse1 ? "rgba(76, 175, 80, 0.15)" : "transparent", color: condReverse1 ? "#4caf50" : "rgba(255,255,255,0.5)", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>R</Box>
               </Box>
             </Box>
-            <Box sx={{ width: 32, height: 32, borderRadius: 1, border: "2px solid #b71c1c", backgroundColor: "#fe5050", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold" }}>B</Box>
+            {/* 조건 패턴 2 */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              {[...Array(8)].map((_, idx) => {
+                const char = condPattern2[idx];
+                const isP = char === "P";
+                const isB = char === "B";
+                return (
+                  <Box key={`l-cond2-${idx}`} sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                    <Box onClick={() => { if (!fetchCode) return; let arr = condPattern2.padEnd(12, " ").split(""); arr[idx] = isP ? " " : "P"; const trimmed = arr.join("").replace(/ +$/, ""); setCondPattern2(trimmed); handleCondPatternSave(2, "pattern", trimmed); }}
+                      sx={{ width: 28, height: 28, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: isP ? "#1565c0" : "#fff", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>
+                      {isP && <Typography sx={{ fontSize: 11, fontWeight: "bold", color: "#fff" }}>P</Typography>}
+                    </Box>
+                    <Box onClick={() => { if (!fetchCode) return; let arr = condPattern2.padEnd(12, " ").split(""); arr[idx] = isB ? " " : "B"; const trimmed = arr.join("").replace(/ +$/, ""); setCondPattern2(trimmed); handleCondPatternSave(2, "pattern", trimmed); }}
+                      sx={{ width: 28, height: 28, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: isB ? "#f44336" : "#fff", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>
+                      {isB && <Typography sx={{ fontSize: 11, fontWeight: "bold", color: "#fff" }}>B</Typography>}
+                    </Box>
+                  </Box>
+                );
+              })}
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, ml: 0.5 }}>
+                <Box onClick={() => { if (!fetchCode) return; const newValue = !condEnabled2; if (newValue) { const pattern = condPattern2.replace(/ +$/, ""); if (!pattern) { alert("패턴을 입력하세요."); return; } if (pattern.includes(" ")) { alert("패턴이 끊어져 있습니다."); return; } } setCondEnabled2(newValue); handleCondPatternSave(2, "enabled", newValue); }}
+                  sx={{ px: 1, height: 28, fontSize: 11, borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", border: condEnabled2 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)", backgroundColor: condEnabled2 ? "rgba(76, 175, 80, 0.15)" : "transparent", color: condEnabled2 ? "#4caf50" : "rgba(255,255,255,0.5)", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>Y</Box>
+                <Box onClick={() => { if (!fetchCode) return; setCondReverse2(!condReverse2); handleCondPatternSave(2, "reverse", !condReverse2); }}
+                  sx={{ px: 1, height: 28, fontSize: 11, borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", border: condReverse2 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)", backgroundColor: condReverse2 ? "rgba(76, 175, 80, 0.15)" : "transparent", color: condReverse2 ? "#4caf50" : "rgba(255,255,255,0.5)", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>R</Box>
+              </Box>
+            </Box>
           </Box>
           {/* 통계 표시 */}
           {pickStat && (
@@ -1282,6 +1324,188 @@ export default function PickManagementPage() {
               <Box sx={{ flex: 1, height: 36, backgroundColor: "#fe5050", display: "flex", alignItems: "center", justifyContent: "center" }}><Typography sx={{ color: "#fff", fontSize: 12 }}>-%</Typography></Box>
             </Box>
             <Box sx={{ width: 36, height: 36, borderRadius: 1, border: "2px solid #b71c1c", backgroundColor: "#fe5050", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold" }}>B</Box>
+          </Box>
+        </Box>
+        {/* 조건 패턴 1 - 모바일 */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+            {[...Array(8)].map((_, idx) => {
+              const char = condPattern1[idx];
+              const isP = char === "P";
+              return (
+                <Box
+                  key={`m-cond-p-${idx}`}
+                  onClick={() => {
+                    if (!fetchCode) return;
+                    let arr = condPattern1.padEnd(12, " ").split("");
+                    arr[idx] = isP ? " " : "P";
+                    const trimmed = arr.join("").replace(/ +$/, "");
+                    setCondPattern1(trimmed);
+                    handleCondPatternSave(1, "pattern", trimmed);
+                  }}
+                  sx={{
+                    width: 24, height: 24, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 0.5,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    backgroundColor: isP ? "#1565c0" : "#fff",
+                    cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5,
+                  }}
+                >
+                  {isP && <Typography sx={{ fontSize: 10, fontWeight: "bold", color: "#fff" }}>P</Typography>}
+                </Box>
+              );
+            })}
+            <Box
+              onClick={() => {
+                if (!fetchCode) return;
+                const newValue = !condEnabled1;
+                if (newValue) {
+                  const pattern = condPattern1.replace(/ +$/, "");
+                  if (!pattern) { alert("패턴을 입력하세요."); return; }
+                  if (pattern.includes(" ")) { alert("패턴이 끊어져 있습니다."); return; }
+                }
+                setCondEnabled1(newValue);
+                handleCondPatternSave(1, "enabled", newValue);
+              }}
+              sx={{
+                px: 0.75, py: 0.25, fontSize: 10, ml: 0.5,
+                border: condEnabled1 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+                backgroundColor: condEnabled1 ? "rgba(76, 175, 80, 0.15)" : "transparent",
+                color: condEnabled1 ? "#4caf50" : "rgba(255,255,255,0.5)",
+                cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5,
+              }}
+            >Yes</Box>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+            {[...Array(8)].map((_, idx) => {
+              const char = condPattern1[idx];
+              const isB = char === "B";
+              return (
+                <Box
+                  key={`m-cond-b-${idx}`}
+                  onClick={() => {
+                    if (!fetchCode) return;
+                    let arr = condPattern1.padEnd(12, " ").split("");
+                    arr[idx] = isB ? " " : "B";
+                    const trimmed = arr.join("").replace(/ +$/, "");
+                    setCondPattern1(trimmed);
+                    handleCondPatternSave(1, "pattern", trimmed);
+                  }}
+                  sx={{
+                    width: 24, height: 24, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 0.5,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    backgroundColor: isB ? "#f44336" : "#fff",
+                    cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5,
+                  }}
+                >
+                  {isB && <Typography sx={{ fontSize: 10, fontWeight: "bold", color: "#fff" }}>B</Typography>}
+                </Box>
+              );
+            })}
+            <Box
+              onClick={() => {
+                if (!fetchCode) return;
+                setCondReverse1(!condReverse1);
+                handleCondPatternSave(1, "reverse", !condReverse1);
+              }}
+              sx={{
+                px: 0.75, py: 0.25, fontSize: 10, ml: 0.5,
+                border: condReverse1 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+                backgroundColor: condReverse1 ? "rgba(76, 175, 80, 0.15)" : "transparent",
+                color: condReverse1 ? "#4caf50" : "rgba(255,255,255,0.5)",
+                cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5,
+              }}
+            >Rev</Box>
+          </Box>
+        </Box>
+        {/* 조건 패턴 2 - 모바일 */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+            {[...Array(8)].map((_, idx) => {
+              const char = condPattern2[idx];
+              const isP = char === "P";
+              return (
+                <Box
+                  key={`m-cond2-p-${idx}`}
+                  onClick={() => {
+                    if (!fetchCode) return;
+                    let arr = condPattern2.padEnd(12, " ").split("");
+                    arr[idx] = isP ? " " : "P";
+                    const trimmed = arr.join("").replace(/ +$/, "");
+                    setCondPattern2(trimmed);
+                    handleCondPatternSave(2, "pattern", trimmed);
+                  }}
+                  sx={{
+                    width: 24, height: 24, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 0.5,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    backgroundColor: isP ? "#1565c0" : "#fff",
+                    cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5,
+                  }}
+                >
+                  {isP && <Typography sx={{ fontSize: 10, fontWeight: "bold", color: "#fff" }}>P</Typography>}
+                </Box>
+              );
+            })}
+            <Box
+              onClick={() => {
+                if (!fetchCode) return;
+                const newValue = !condEnabled2;
+                if (newValue) {
+                  const pattern = condPattern2.replace(/ +$/, "");
+                  if (!pattern) { alert("패턴을 입력하세요."); return; }
+                  if (pattern.includes(" ")) { alert("패턴이 끊어져 있습니다."); return; }
+                }
+                setCondEnabled2(newValue);
+                handleCondPatternSave(2, "enabled", newValue);
+              }}
+              sx={{
+                px: 0.75, py: 0.25, fontSize: 10, ml: 0.5,
+                border: condEnabled2 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+                backgroundColor: condEnabled2 ? "rgba(76, 175, 80, 0.15)" : "transparent",
+                color: condEnabled2 ? "#4caf50" : "rgba(255,255,255,0.5)",
+                cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5,
+              }}
+            >Yes</Box>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+            {[...Array(8)].map((_, idx) => {
+              const char = condPattern2[idx];
+              const isB = char === "B";
+              return (
+                <Box
+                  key={`m-cond2-b-${idx}`}
+                  onClick={() => {
+                    if (!fetchCode) return;
+                    let arr = condPattern2.padEnd(12, " ").split("");
+                    arr[idx] = isB ? " " : "B";
+                    const trimmed = arr.join("").replace(/ +$/, "");
+                    setCondPattern2(trimmed);
+                    handleCondPatternSave(2, "pattern", trimmed);
+                  }}
+                  sx={{
+                    width: 24, height: 24, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 0.5,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    backgroundColor: isB ? "#f44336" : "#fff",
+                    cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5,
+                  }}
+                >
+                  {isB && <Typography sx={{ fontSize: 10, fontWeight: "bold", color: "#fff" }}>B</Typography>}
+                </Box>
+              );
+            })}
+            <Box
+              onClick={() => {
+                if (!fetchCode) return;
+                setCondReverse2(!condReverse2);
+                handleCondPatternSave(2, "reverse", !condReverse2);
+              }}
+              sx={{
+                px: 0.75, py: 0.25, fontSize: 10, ml: 0.5,
+                border: condReverse2 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+                backgroundColor: condReverse2 ? "rgba(76, 175, 80, 0.15)" : "transparent",
+                color: condReverse2 ? "#4caf50" : "rgba(255,255,255,0.5)",
+                cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5,
+              }}
+            >Rev</Box>
           </Box>
         </Box>
         {/* 통계 표시 */}
