@@ -233,10 +233,8 @@ export default function GameT1Page() {
         const newPattern = newAllValues.length >= 11
           ? newAllValues.slice(-11).join("")
           : newAllValues.join("");
-        // prev_results: 11픽 패턴 앞에 있는 결과만 전달 (조건 패턴 매칭용)
-        const prevResults = newAllValues.length > 11
-          ? newAllValues.slice(0, -11).join("")
-          : "";
+        // prev_results: 전체 결과 전달 (11픽 패턴 포함하여 조건 패턴 매칭)
+        const prevResults = newAllValues.join("");
         fetchPick(newPattern, prevResults);
       }
     }

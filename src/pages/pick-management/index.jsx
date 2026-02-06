@@ -1069,7 +1069,7 @@ export default function PickManagementPage() {
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
             {/* 조건 패턴 1 */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              {[...Array(8)].map((_, idx) => {
+              {[...Array(10)].map((_, idx) => {
                 const char = condPattern1[idx];
                 const isP = char === "P";
                 const isB = char === "B";
@@ -1095,7 +1095,7 @@ export default function PickManagementPage() {
             </Box>
             {/* 조건 패턴 2 */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              {[...Array(8)].map((_, idx) => {
+              {[...Array(10)].map((_, idx) => {
                 const char = condPattern2[idx];
                 const isP = char === "P";
                 const isB = char === "B";
@@ -1329,7 +1329,7 @@ export default function PickManagementPage() {
         {/* 조건 패턴 1 - 모바일 */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-            {[...Array(8)].map((_, idx) => {
+            {[...Array(10)].map((_, idx) => {
               const char = condPattern1[idx];
               const isP = char === "P";
               return (
@@ -1376,7 +1376,7 @@ export default function PickManagementPage() {
             >Yes</Box>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-            {[...Array(8)].map((_, idx) => {
+            {[...Array(10)].map((_, idx) => {
               const char = condPattern1[idx];
               const isB = char === "B";
               return (
@@ -1420,7 +1420,7 @@ export default function PickManagementPage() {
         {/* 조건 패턴 2 - 모바일 */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-            {[...Array(8)].map((_, idx) => {
+            {[...Array(10)].map((_, idx) => {
               const char = condPattern2[idx];
               const isP = char === "P";
               return (
@@ -1467,7 +1467,7 @@ export default function PickManagementPage() {
             >Yes</Box>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-            {[...Array(8)].map((_, idx) => {
+            {[...Array(10)].map((_, idx) => {
               const char = condPattern2[idx];
               const isB = char === "B";
               return (
@@ -1938,7 +1938,7 @@ export default function PickManagementPage() {
       <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 2 }}>
         {/* P 행 */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          {[...Array(12)].map((_, idx) => {
+          {[...Array(10)].map((_, idx) => {
             const char = condPattern1[idx];
             const isP = char === "P";
             return (
@@ -2002,7 +2002,7 @@ export default function PickManagementPage() {
         </Box>
         {/* B 행 */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          {[...Array(12)].map((_, idx) => {
+          {[...Array(10)].map((_, idx) => {
             const char = condPattern1[idx];
             const isB = char === "B";
             return (
@@ -2056,7 +2056,7 @@ export default function PickManagementPage() {
       <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 2 }}>
         {/* P 행 */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          {[...Array(12)].map((_, idx) => {
+          {[...Array(10)].map((_, idx) => {
             const char = condPattern2[idx];
             const isP = char === "P";
             return (
@@ -2118,7 +2118,7 @@ export default function PickManagementPage() {
         </Box>
         {/* B 행 */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          {[...Array(12)].map((_, idx) => {
+          {[...Array(10)].map((_, idx) => {
             const char = condPattern2[idx];
             const isB = char === "B";
             return (
