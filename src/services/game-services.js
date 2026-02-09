@@ -21,9 +21,10 @@ export const deleteGame = (gameSeq) => {
   return apiCaller.delete(`/api/v1/game/${gameSeq}`);
 };
 
-// V2 게임 상세 조회
-export const getGameV2 = (gameSeq) => {
-  return apiCaller.get(`/api/v1/game/v2/${gameSeq}`);
+// V2 게임 상세 조회 (pick_mode: 1/3/6)
+export const getGameV2 = (gameSeq, pickMode = 1) => {
+  const params = pickMode !== 1 ? { pick_mode: pickMode } : {};
+  return apiCaller.get(`/api/v1/game/v2/${gameSeq}`, params);
 };
 
 // 패턴별 게임 목록 조회 (앞 4자리)
@@ -46,21 +47,24 @@ export const recalculateGameStats = () => {
   return apiCaller.post("/api/v1/game/recalculate-stats");
 };
 
-// game_stat 테이블에서 통계 조회 (ALL 또는 패턴)
-export const getGameStat = (statKey) => {
-  return apiCaller.get(`/api/v1/game/stat/${statKey}`);
+// game_stat 테이블에서 통계 조회 (ALL 또는 패턴, pick_mode: 1/3/6)
+export const getGameStat = (statKey, pickMode = 1) => {
+  const params = pickMode !== 1 ? { pick_mode: pickMode } : {};
+  return apiCaller.get(`/api/v1/game/stat/${statKey}`, params);
 };
 
-// 페이지네이션 API (서버사이드)
-export const getGamesPaginated = (page = 1, pageSize = 10, streakFilter = null) => {
+// 페이지네이션 API (서버사이드, pick_mode: 1/3/6)
+export const getGamesPaginated = (page = 1, pageSize = 10, streakFilter = null, pickMode = 1) => {
   const params = { page, page_size: pageSize };
   if (streakFilter) params.streak_filter = streakFilter;
+  if (pickMode !== 1) params.pick_mode = pickMode;
   return apiCaller.get("/api/v1/game/paginated", params);
 };
 
-export const getGamesByPatternPaginated = (pattern, page = 1, pageSize = 10, streakFilter = null) => {
+export const getGamesByPatternPaginated = (pattern, page = 1, pageSize = 10, streakFilter = null, pickMode = 1) => {
   const params = { page, page_size: pageSize };
   if (streakFilter) params.streak_filter = streakFilter;
+  if (pickMode !== 1) params.pick_mode = pickMode;
   return apiCaller.get(`/api/v1/game/by-pattern/${pattern}/paginated`, params);
 };
 

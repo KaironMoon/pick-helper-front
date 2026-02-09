@@ -182,6 +182,7 @@ export default function GamedataPage() {
   const restoreGameSeq = useRef(lastGameState?.game_seq || null);
 
   const [patternIndex, setPatternIndex] = useState(lastGameState?.patternIndex ?? 0);
+  const [pickMode, setPickMode] = useState(lastGameState?.pickMode ?? 1); // 1, 3, 6
   const [games, setGames] = useState([]);
   const [selectedGameIndex, setSelectedGameIndex] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -218,8 +219,8 @@ export default function GamedataPage() {
         eventSource.close();
         setRecalculating(false);
         alert(`완료: ${data.total}개 게임 업데이트`);
-        fetchGames(currentPattern.pattern, currentPage, streakFilter);
-        fetchPatternStat(currentPattern.pattern);
+        fetchGames(currentPattern.pattern, currentPage, streakFilter, pickMode);
+        fetchPatternStat(currentPattern.pattern, pickMode);
       }
     };
 
@@ -260,14 +261,14 @@ export default function GamedataPage() {
   };
 
   // 서버에서 게임 목록 조회 (페이지네이션)
-  const fetchGames = useCallback(async (pattern, page, streak) => {
+  const fetchGames = useCallback(async (pattern, page, streak, mode) => {
     setLoading(true);
     try {
       let response;
       if (pattern === "ALL") {
-        response = await getGamesPaginated(page, itemsPerPage, streak);
+        response = await getGamesPaginated(page, itemsPerPage, streak, mode);
       } else {
-        response = await getGamesByPatternPaginated(pattern, page, itemsPerPage, streak);
+        response = await getGamesByPatternPaginated(pattern, page, itemsPerPage, streak, mode);
       }
       const data = response.data;
       setGames(data.items || []);
@@ -287,9 +288,9 @@ export default function GamedataPage() {
   }, [itemsPerPage]);
 
   // 패턴 통계 조회 (game_stat 테이블)
-  const fetchPatternStat = useCallback(async (pattern) => {
+  const fetchPatternStat = useCallback(async (pattern, mode) => {
     try {
-      const response = await getGameStat(pattern);
+      const response = await getGameStat(pattern, mode);
       setPatternStat(response.data);
     } catch (error) {
       console.error("Failed to fetch pattern stat:", error);
@@ -297,15 +298,25 @@ export default function GamedataPage() {
     }
   }, []);
 
+  // pickMode 변경 시 선택된 게임의 turns 재조회
+  useEffect(() => {
+    if (selectedGameIndex !== null && games[selectedGameIndex]) {
+      const game = games[selectedGameIndex];
+      getGameV2(game.game_seq, pickMode).then(res => {
+        setSelectedGameTurns(res.data?.turns || []);
+      }).catch(() => setSelectedGameTurns([]));
+    }
+  }, [pickMode]);
+
   // 패턴 또는 페이지 변경시 데이터 조회
   useEffect(() => {
-    fetchGames(currentPattern.pattern, currentPage, streakFilter);
-  }, [patternIndex, currentPage, itemsPerPage, streakFilter, fetchGames, currentPattern.pattern]);
+    fetchGames(currentPattern.pattern, currentPage, streakFilter, pickMode);
+  }, [patternIndex, currentPage, itemsPerPage, streakFilter, pickMode, fetchGames, currentPattern.pattern]);
 
   // 패턴 변경시 통계 조회
   useEffect(() => {
-    fetchPatternStat(currentPattern.pattern);
-  }, [patternIndex, fetchPatternStat, currentPattern.pattern]);
+    fetchPatternStat(currentPattern.pattern, pickMode);
+  }, [patternIndex, pickMode, fetchPatternStat, currentPattern.pattern]);
 
   // 이전 패턴
   const handlePrevPattern = () => {
@@ -345,10 +356,11 @@ export default function GamedataPage() {
         patternIndex,
         currentPage,
         streakFilter,
+        pickMode,
       }));
 
       try {
-        const response = await getGameV2(game.game_seq);
+        const response = await getGameV2(game.game_seq, pickMode);
         setSelectedGameTurns(response.data?.turns || []);
       } catch (error) {
         console.error("Failed to fetch game detail:", error);
@@ -365,7 +377,7 @@ export default function GamedataPage() {
     try {
       await deleteGame(selectedGame.game_seq);
       // 목록 새로고침
-      fetchGames(currentPattern.pattern, currentPage);
+      fetchGames(currentPattern.pattern, currentPage, streakFilter, pickMode);
     } catch (error) {
       console.error("Failed to delete game:", error);
       alert("삭제 실패");
@@ -504,8 +516,38 @@ export default function GamedataPage() {
         );
       })()}
 
-      {/* 중간 - 패턴 선택 + 통계 + 선택번호 + Delete */}
+      {/* 중간 - 모드 선택 + 패턴 선택 + 통계 + 선택번호 + Delete */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        {/* 1/3/6 모드 선택 */}
+        <Box sx={{ display: "flex", gap: 0.5 }}>
+          {[1, 3, 6].map((n) => (
+            <Box
+              key={n}
+              onClick={() => {
+                setPickMode(n);
+                setSelectedGameIndex(null);
+                setSelectedGameTurns([]);
+              }}
+              sx={{
+                width: 28,
+                height: 28,
+                border: pickMode === n ? "2px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+                backgroundColor: pickMode === n ? "rgba(76, 175, 80, 0.3)" : "transparent",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 12,
+                fontWeight: pickMode === n ? "bold" : "normal",
+                cursor: "pointer",
+                color: pickMode === n ? "#4caf50" : "text.primary",
+                borderRadius: 0.5,
+              }}
+            >
+              {n}
+            </Box>
+          ))}
+        </Box>
+
         {/* 패턴 선택 */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <IconButton size="small" onClick={handlePrevPattern}>

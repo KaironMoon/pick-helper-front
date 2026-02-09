@@ -221,20 +221,20 @@ export default function GameT1Page() {
     const newResults = [...results, newResult];
     setResults(newResults);
 
-    // 맞았고 multi-pick 모드이면서 다음 순서가 남아있으면 순서만 증가
+    // multi-pick: 배치가 있으면 순서대로 소비, 배치 없거나 다 쓰면 새로 조회
+    const currentBatch = pickMode === 3 ? currentPick3 : pickMode === 6 ? currentPick6 : [];
+    const hasBatch = currentBatch.length > 0;
     const maxOrder = pickMode === 3 ? 2 : pickMode === 6 ? 5 : 0;
-    if (isCorrect && pickMode > 1 && predictOrder < maxOrder) {
+    if (hasBatch && pickMode > 1 && predictOrder < maxOrder) {
       setPredictOrder(predictOrder + 1);
     } else {
-      // 틀렸거나 1pick이거나 시퀀스 끝이면 새로 조회
+      // 배치 없거나 1pick이거나 시퀀스 끝이면 새로 조회
       setPredictOrder(0);
       const newAllValues = newResults.map(r => r.value);
       if (newAllValues.length >= 1) {
-        // 단순히 마지막 11개 패턴 (서버에서 줄 경계 계산)
         const newPattern = newAllValues.length >= 11
           ? newAllValues.slice(-11).join("")
           : newAllValues.join("");
-        // prev_results: 전체 결과 전달 (서버에서 줄 경계 + 조건 패턴 매칭)
         const prevResults = newAllValues.join("");
         fetchPick(newPattern, prevResults);
       }
@@ -406,10 +406,13 @@ export default function GameT1Page() {
           </Box>
         ))}
 
-        {/* 예상 픽 (6개 공간) */}
+        {/* 예상 픽 (6개 공간) - 배치 전체 표시, 현재 순서 강조 */}
         <Box sx={{ display: "flex", gap: 0.5 }}>
           {[0, 1, 2, 3, 4, 5].map((idx) => {
-            const predict = idx === 0 ? getCurrentPredict() : null;
+            const batch = pickMode === 6 ? currentPick6 : pickMode === 3 ? currentPick3 : (currentPick ? [currentPick] : []);
+            const pick = batch[idx] || null;
+            const isCurrent = idx === predictOrder;
+            const isUsed = idx < predictOrder;
             return (
               <Box
                 key={idx}
@@ -417,19 +420,22 @@ export default function GameT1Page() {
                   width: 32,
                   height: 32,
                   borderRadius: 1,
-                  backgroundColor: "#fff",
-                  border: predict
-                    ? `3px solid ${predict === "P" ? "#1565c0" : "#f44336"}`
+                  backgroundColor: isUsed ? "rgba(255,255,255,0.15)" : "#fff",
+                  border: pick
+                    ? isCurrent
+                      ? `3px solid ${pick === "P" ? "#1565c0" : "#f44336"}`
+                      : `2px solid ${pick === "P" ? "rgba(21,101,192,0.4)" : "rgba(244,67,54,0.4)"}`
                     : "1px solid rgba(255,255,255,0.3)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: predict === "P" ? "#1565c0" : "#f44336",
+                  color: pick === "P" ? "#1565c0" : "#f44336",
                   fontSize: 14,
-                  fontWeight: "bold",
+                  fontWeight: isCurrent ? "bold" : "normal",
+                  opacity: isUsed ? 0.4 : 1,
                 }}
               >
-                {predict || ""}
+                {pick || ""}
               </Box>
             );
           })}
@@ -631,38 +637,45 @@ export default function GameT1Page() {
             </Typography>
           </Box>
 
-          {/* 예측 픽 표시 영역 */}
-          <Box
-            sx={{
-              width: { xs: 80, md: 100 },
-              height: { xs: 60, md: 80 },
-              border: "1px solid rgba(255,255,255,0.3)",
-              borderRadius: 2,
-              backgroundColor: "background.paper",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {getCurrentPredict() && (
-              <Box
-                sx={{
-                  width: { xs: 36, md: 50 },
-                  height: { xs: 36, md: 50 },
-                  borderRadius: 2,
-                  backgroundColor: getCurrentPredict() === "P" ? "#1565c0" : "#f44336",
-                  border: `3px solid ${getCurrentPredict() === "P" ? "#1565c0" : "#f44336"}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  fontSize: { xs: 18, md: 24 },
-                  fontWeight: "bold",
-                }}
-              >
-                {getCurrentPredict()}
-              </Box>
-            )}
+          {/* 예측 픽 표시 영역 - 배치 전체 표시 */}
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 40px)", gap: 0.5 }}>
+            {(() => {
+              const batch = pickMode === 6 ? currentPick6 : pickMode === 3 ? currentPick3 : (currentPick ? [currentPick] : []);
+              if (batch.length === 0) return (
+                <Box sx={{ width: 100, height: 50, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 2, backgroundColor: "background.paper" }} />
+              );
+              return batch.map((pick, idx) => {
+                const isCurrent = idx === predictOrder;
+                const isUsed = idx < predictOrder;
+                return (
+                  <Box
+                    key={idx}
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 1,
+                      backgroundColor: isUsed
+                        ? "rgba(255,255,255,0.1)"
+                        : pick === "P" ? "#1565c0" : "#f44336",
+                      border: isCurrent
+                        ? `3px solid #fff`
+                        : isUsed
+                          ? "2px solid rgba(255,255,255,0.2)"
+                          : `2px solid ${pick === "P" ? "#1565c0" : "#f44336"}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: isUsed ? "rgba(255,255,255,0.4)" : "#fff",
+                      fontSize: 18,
+                      fontWeight: isCurrent ? "bold" : "normal",
+                      opacity: isUsed ? 0.4 : 1,
+                    }}
+                  >
+                    {pick}
+                  </Box>
+                );
+              });
+            })()}
           </Box>
         </Box>
 
