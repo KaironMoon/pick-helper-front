@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box, Typography, Paper, IconButton, Select, MenuItem, useMediaQuery, useTheme, CircularProgress } from "@mui/material";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import ArrowForward from "@mui/icons-material/ArrowForward";
-import { deleteGame, getGameV2, getGameStat, getGamesPaginated, getGamesByPatternPaginated } from "@/services/game-services";
+import { deleteGame, getGameV2, getGameStat, getGamesPaginated, getGamesByPatternPaginated, getTurnDetail } from "@/services/game-services";
 
 const GRID_ROWS = 6;
 const GRID_COLS = 42;
@@ -65,7 +66,8 @@ const calculateStreakTurns = (turns) => {
 
   for (let i = 0; i < turns.length; i++) {
     const t = turns[i];
-    if (t.predict && t.predict !== t.result) {
+    if (!t.predict) continue; // 픽 없으면 판정 안함, 연패 유지
+    if (t.predict !== t.result) {
       if (missStart === -1) missStart = i;
       missCount++;
     } else {
@@ -123,13 +125,13 @@ const calculateCircleGrid = (shoes, turns = []) => {
       status = turn.predict === turn.result ? "hit" : "miss";
     }
 
-    // 약칭: nickname이 있으면 사용, 없으면 "N"
-    const nickname = turn?.nickname || "N";
+    // 약칭: nickname이 있으면 사용, 픽 있는데 약칭 없으면 "[ ]", 픽 없으면 "N"
+    const nickname = turn?.nickname || (turn?.predict ? "[ ]" : "N");
 
     // 연패 여부
     const inStreak = streakTurns.has(turnNo);
 
-    const cellData = { type: current, filled: true, status, nickname, inStreak };
+    const cellData = { type: current, filled: true, status, nickname, inStreak, turnNo };
 
     if (prevValue === null) {
       grid[row][col] = cellData;
@@ -165,16 +167,25 @@ const calculateCircleGrid = (shoes, turns = []) => {
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 const STORAGE_KEY = "gamedata_page_size";
+const LAST_GAME_KEY = "gamedata_last_game";
 
 export default function GamedataPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const navigate = useNavigate();
 
-  const [patternIndex, setPatternIndex] = useState(0);
+  // localStorage에서 마지막 게임 상태 복원
+  const savedLastGame = useRef(() => {
+    try { return JSON.parse(localStorage.getItem(LAST_GAME_KEY)); } catch { return null; }
+  });
+  const lastGameState = savedLastGame.current();
+  const restoreGameSeq = useRef(lastGameState?.game_seq || null);
+
+  const [patternIndex, setPatternIndex] = useState(lastGameState?.patternIndex ?? 0);
   const [games, setGames] = useState([]);
   const [selectedGameIndex, setSelectedGameIndex] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(lastGameState?.currentPage ?? 1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(() => {
@@ -185,7 +196,9 @@ export default function GamedataPage() {
   const [recalculating, setRecalculating] = useState(false);
   const [recalcProgress, setRecalcProgress] = useState(0);
   const [patternStat, setPatternStat] = useState(null);
-  const [streakFilter, setStreakFilter] = useState(null); // 연패 필터 (4~14 또는 "15+")
+  const [streakFilter, setStreakFilter] = useState(lastGameState?.streakFilter ?? null); // 연패 필터 (4~14 또는 "15+")
+  const [selectedTurnNo, setSelectedTurnNo] = useState(null); // 격자에서 선택된 턴
+  const [turnDetail, setTurnDetail] = useState(null); // 서버에서 조회한 턴 상세
 
   // 통계 재계산 (SSE)
   const handleRecalculateStats = () => {
@@ -260,8 +273,10 @@ export default function GamedataPage() {
       setGames(data.items || []);
       setTotalPages(data.total_pages || 1);
       setTotalCount(data.total_count || 0);
-      setSelectedGameIndex(null);
-      setSelectedGameTurns([]);
+      if (!restoreGameSeq.current) {
+        setSelectedGameIndex(null);
+        setSelectedGameTurns([]);
+      }
     } catch (error) {
       console.error("Failed to fetch games:", error);
       setGames([]);
@@ -304,13 +319,34 @@ export default function GamedataPage() {
     setCurrentPage(1);
   };
 
+  // 게임 목록 로드 후 마지막 게임 복원
+  useEffect(() => {
+    if (restoreGameSeq.current && games.length > 0) {
+      const idx = games.findIndex(g => g.game_seq === restoreGameSeq.current);
+      restoreGameSeq.current = null;
+      if (idx !== -1) {
+        handleGameSelect(idx);
+      }
+    }
+  }, [games]);
+
   // 게임 선택
   const handleGameSelect = async (index) => {
     setSelectedGameIndex(index);
+    setSelectedTurnNo(null);
+    setTurnDetail(null);
 
     // 게임 상세 조회 (turns 포함)
     const game = games[index];
     if (game) {
+      // localStorage에 마지막 게임 상태 저장
+      localStorage.setItem(LAST_GAME_KEY, JSON.stringify({
+        game_seq: game.game_seq,
+        patternIndex,
+        currentPage,
+        streakFilter,
+      }));
+
       try {
         const response = await getGameV2(game.game_seq);
         setSelectedGameTurns(response.data?.turns || []);
@@ -363,6 +399,17 @@ export default function GamedataPage() {
           row.map((cell, colIndex) => (
             <Box
               key={`${rowIndex}-${colIndex}`}
+              onClick={async () => {
+                if (!cell?.turnNo || !selectedGame) return;
+                setSelectedTurnNo(cell.turnNo);
+                try {
+                  const res = await getTurnDetail(selectedGame.game_seq, cell.turnNo);
+                  setTurnDetail(res.data);
+                } catch (e) {
+                  console.error("Failed to fetch turn detail:", e);
+                  setTurnDetail(null);
+                }
+              }}
               sx={{
                 display: "flex",
                 alignItems: "center",
@@ -372,8 +419,11 @@ export default function GamedataPage() {
                   : cell?.status === "miss"
                     ? "#ffeb3b"
                     : "background.default",
-                border: cell?.inStreak ? "2px solid #ff5722" : "none",
+                border: cell?.turnNo === selectedTurnNo
+                  ? "2px solid #fff"
+                  : cell?.inStreak ? "2px solid #ff5722" : "none",
                 boxSizing: "border-box",
+                cursor: cell ? "pointer" : "default",
               }}
             >
               {cell && <Circle type={cell.type} nickname={cell.nickname} size={isMobile ? 12 : 22} />}
@@ -381,6 +431,78 @@ export default function GamedataPage() {
           ))
         )}
       </Box>
+
+      {/* 턴 상세: prev_picks + predict + 실제결과 (한줄) */}
+      {turnDetail && (() => {
+        const prevPicks = (turnDetail.prev_picks || "").split("").filter(c => c === "P" || c === "B");
+        const predict = turnDetail.predict;
+        const result = turnDetail.result;
+        const cellSize = isMobile ? 18 : 28;
+        return (
+          <Box sx={{ display: "flex", alignItems: "center", gap: "2px", py: 0.5 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", mr: 0.5 }}>
+              T{selectedTurnNo}
+            </Typography>
+            {/* prev_picks + predict + 실제결과 격자 */}
+            <Box sx={{
+              display: "flex", alignItems: "center",
+              gap: "1px", backgroundColor: "#616161",
+              border: "1px solid #616161",
+            }}>
+              {/* prev_picks (11칸 고정, 좌측 정렬) */}
+              {Array.from({ length: 11 }, (_, i) => {
+                const c = i < prevPicks.length ? prevPicks[i] : null;
+                return (
+                  <Box key={`pp-${i}`} sx={{
+                    width: cellSize, height: cellSize,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    backgroundColor: "background.default",
+                  }}>
+                    {c && <Circle type={c} nickname="" size={cellSize - 4} />}
+                  </Box>
+                );
+              })}
+              {/* 구분 (빈칸) */}
+              <Box sx={{ width: cellSize / 2, height: cellSize, backgroundColor: "#616161" }} />
+              {/* predict */}
+              <Box sx={{
+                width: cellSize, height: cellSize,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                backgroundColor: predict ? (predict === result ? "#4caf50" : "#ffeb3b") : "background.default",
+              }}>
+                {predict ? <Circle type={predict} nickname="" size={cellSize - 4} /> : <Typography variant="caption" sx={{ color: "#999" }}>-</Typography>}
+              </Box>
+              {/* 구분 (빈칸) */}
+              <Box sx={{ width: cellSize / 2, height: cellSize, backgroundColor: "#616161" }} />
+              {/* 실제 결과 */}
+              <Box sx={{
+                width: cellSize, height: cellSize,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                backgroundColor: "background.default",
+              }}>
+                {result ? <Circle type={result} nickname="" size={cellSize - 4} /> : <Typography variant="caption" sx={{ color: "#999" }}>-</Typography>}
+              </Box>
+            </Box>
+            {/* 추가 정보 */}
+            <Typography variant="caption" sx={{ color: "text.secondary", ml: 1 }}>
+              {turnDetail.nickname || "-"} {turnDetail.pick_code || ""}
+            </Typography>
+            {turnDetail.pick_code && (
+              <Box
+                onClick={() => navigate(`/pick-management?code=${turnDetail.pick_code}`)}
+                sx={{
+                  ml: 1, px: 1, py: 0.25,
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  borderRadius: 0.5, cursor: "pointer",
+                  "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+                }}
+              >
+                <Typography variant="caption">이동</Typography>
+              </Box>
+            )}
+          </Box>
+        );
+      })()}
 
       {/* 중간 - 패턴 선택 + 통계 + 선택번호 + Delete */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>

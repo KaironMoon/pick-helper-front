@@ -63,3 +63,8 @@ export const getGamesByPatternPaginated = (pattern, page = 1, pageSize = 10, str
   if (streakFilter) params.streak_filter = streakFilter;
   return apiCaller.get(`/api/v1/game/by-pattern/${pattern}/paginated`, params);
 };
+
+// 턴 상세 조회 (DB prev_picks, predict, result)
+export const getTurnDetail = (gameSeq, turnNo) => {
+  return apiCaller.get(`/api/v1/game/turn-detail/${gameSeq}/${turnNo}`);
+};

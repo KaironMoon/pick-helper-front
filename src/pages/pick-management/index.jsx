@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Box, Typography, Paper, IconButton, TextField, useMediaQuery, CircularProgress } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { ArrowBack, ArrowForward } from "@mui/icons-material";
@@ -264,6 +265,7 @@ const calculateCircleGrid = (prevPicks, gridRows, gridCols, nextPicks = []) => {
 };
 
 export default function PickManagementPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [formatRange, setFormatRange] = useState(() => {
     const saved = localStorage.getItem("pickManagement_formatRange");
     return saved && FORMAT_SEQUENCE.includes(saved) ? saved : "A1";
@@ -344,6 +346,49 @@ export default function PickManagementPage() {
   useEffect(() => {
     fetchPatterns();
   }, [formatRange, half]);
+
+  // 쿼리 파라미터 ?code=C1-24 로 진입 시 자동 이동
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (code) {
+      setFetchCode(code);
+      searchParams.delete("code");
+      setSearchParams(searchParams, { replace: true });
+      // fetchPatterns 완료 후 handleFetchByCode 실행을 위해 약간 지연
+      setTimeout(() => {
+        const input = code.toUpperCase().trim();
+        const parts = input.split("-");
+        if (parts.length === 2) {
+          const code1 = parts[0];
+          const code2 = parts[1];
+          fetch(`/api/v1/picks2/code/${code1}/${code2}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (!data) return;
+              const prevPicks = data.prev_picks || "";
+              setFetchCode(`${code1}-${code2}`);
+              setDlNickname(data.shortname || data.nickname || "");
+              setSelectedPattern(prevPicks);
+              setCurrentPick1(data.next_pick_1 || null);
+              setCurrentPick3(data.next_pick_3 ? data.next_pick_3.split("") : ["", "", ""]);
+              setCurrentPick6(data.next_pick_6 ? data.next_pick_6.split("") : ["", "", "", "", "", ""]);
+              setCurrentPickIndex(0);
+              fetchPickStat(prevPicks);
+              setCondPattern1(data.cond_pattern_1 || "");
+              setCondReverse1(data.cond_reverse_1 || false);
+              setCondEnabled1(data.cond_enabled_1 || false);
+              setCondPattern2(data.cond_pattern_2 || "");
+              setCondReverse2(data.cond_reverse_2 || false);
+              setCondEnabled2(data.cond_enabled_2 || false);
+              setScrollTargetCode(`${code1}-${code2}`);
+              if (code1 !== formatRange) {
+                setFormatRange(code1);
+              }
+            });
+        }
+      }, 300);
+    }
+  }, []);
 
   // 스크롤 대상으로 이동
   useEffect(() => {
@@ -904,7 +949,7 @@ export default function PickManagementPage() {
   // 모바일 가로 레이아웃 (2컬럼)
   if (isMobile && isLandscape) {
     return (
-      <Box sx={{ p: 1, height: "100%", display: "flex", gap: 1, overflow: "hidden" }}>
+      <Box sx={{ p: 1, height: "calc(100dvh - 48px)", display: "flex", gap: 1, overflow: "hidden" }}>
         {/* 좌측: 격자 + 입력 - 고정 너비 */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flexShrink: 0, alignItems: "flex-start", width: 360, overflow: "hidden" }}>
           {/* 격자 */}
@@ -1178,7 +1223,7 @@ export default function PickManagementPage() {
               )}
             </Box>
           </Box>
-          <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
           {/* 테이블 헤더 */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, p: 0.5, borderBottom: "1px solid rgba(255,255,255,0.2)", backgroundColor: "rgba(255,255,255,0.05)" }}>
             <Typography variant="caption" sx={{ width: 30, textAlign: "center", fontSize: 10 }}>약칭</Typography>
@@ -1214,7 +1259,8 @@ export default function PickManagementPage() {
                   sx={{
                     display: "flex", alignItems: "center", gap: 0.5, p: 0.5,
                     borderBottom: "1px solid rgba(255,255,255,0.1)",
-                    backgroundColor: scrollTargetCode === code ? "rgba(76,175,80,0.2)" : (selectedPattern?.code2 === pattern.code2 ? "rgba(255,255,255,0.1)" : "transparent"),
+                    backgroundColor: scrollTargetCode === code ? "rgba(76,175,80,0.2)" : (selectedPattern === pattern.prev_picks ? "rgba(255,255,255,0.2)" : "transparent"),
+                    border: selectedPattern === pattern.prev_picks ? "1px solid rgba(255,255,255,0.4)" : "none",
                     cursor: "pointer",
                     "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" },
                   }}
@@ -1222,7 +1268,7 @@ export default function PickManagementPage() {
                   <Typography variant="caption" sx={{ width: 30, textAlign: "center", fontSize: 10, color: pattern.nickname ? "#4caf50" : "text.secondary" }}>
                     {pattern.nickname || "-"}
                   </Typography>
-                  <Typography variant="caption" sx={{ width: 45, textAlign: "center", fontSize: 10 }}>{code}</Typography>
+                  <Typography variant="caption" sx={{ width: 45, textAlign: "center", fontSize: 10, color: selectedPattern === pattern.prev_picks ? "#f44336" : "text.primary", fontWeight: selectedPattern === pattern.prev_picks ? "bold" : "normal" }}>{code}</Typography>
                   <Box sx={{ display: "flex", gap: "2px", flex: 1 }}>
                     {pattern.prev_picks?.split("").map((char, i) => (
                       <Circle key={i} type={char} filled={true} size={14} />
@@ -1267,7 +1313,7 @@ export default function PickManagementPage() {
   // 모바일 세로 레이아웃
   if (isMobile && !isLandscape) {
     return (
-      <Box sx={{ p: 1, height: "100%", display: "flex", flexDirection: "column", gap: 1, overflow: "auto", alignItems: "flex-start" }}>
+      <Box sx={{ p: 1, height: "calc(100dvh - 48px)", display: "flex", flexDirection: "column", gap: 1, overflow: "hidden", alignItems: "flex-start" }}>
         {/* 격자 */}
         {GridComponentSmall}
         {/* 입력 컨트롤 - 가로 배치 */}
@@ -1563,7 +1609,7 @@ export default function PickManagementPage() {
           </Box>
         </Box>
         {/* 테이블 */}
-        <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", display: "flex", flexDirection: "column", alignSelf: "stretch" }}>
+        <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", display: "flex", flexDirection: "column", alignSelf: "stretch", flex: 1, minHeight: 0 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, p: 0.5, borderBottom: "1px solid rgba(255,255,255,0.2)", backgroundColor: "rgba(255,255,255,0.05)" }}>
             <Typography variant="caption" sx={{ width: 35, textAlign: "center", fontSize: 11 }}>약칭</Typography>
             <Typography variant="caption" sx={{ width: 50, textAlign: "center", fontSize: 11 }}>번호</Typography>
@@ -1578,9 +1624,9 @@ export default function PickManagementPage() {
             {patterns.map((pattern, index) => {
               const code = `${formatRange}-${pattern.code2}`;
               return (
-                <Box key={index} ref={(el) => { if (el) rowRefs.current[code] = el; }} onClick={() => handlePatternClick(pattern)} sx={{ display: "flex", alignItems: "center", gap: 0.5, p: 0.5, borderBottom: "1px solid rgba(255,255,255,0.1)", backgroundColor: scrollTargetCode === code ? "rgba(76,175,80,0.2)" : (selectedPattern?.code2 === pattern.code2 ? "rgba(255,255,255,0.1)" : "transparent"), cursor: "pointer", "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" } }}>
+                <Box key={index} ref={(el) => { if (el) rowRefs.current[code] = el; }} onClick={() => handlePatternClick(pattern)} sx={{ display: "flex", alignItems: "center", gap: 0.5, p: 0.5, borderBottom: "1px solid rgba(255,255,255,0.1)", backgroundColor: scrollTargetCode === code ? "rgba(76,175,80,0.2)" : (selectedPattern === pattern.prev_picks ? "rgba(255,255,255,0.2)" : "transparent"), border: selectedPattern === pattern.prev_picks ? "1px solid rgba(255,255,255,0.4)" : "none", cursor: "pointer", "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" } }}>
                   <Typography variant="caption" sx={{ width: 35, textAlign: "center", fontSize: 11, color: pattern.nickname ? "#4caf50" : "text.secondary" }}>{pattern.nickname || "-"}</Typography>
-                  <Typography variant="caption" sx={{ width: 50, textAlign: "center", fontSize: 11 }}>{code}</Typography>
+                  <Typography variant="caption" sx={{ width: 50, textAlign: "center", fontSize: 11, color: selectedPattern === pattern.prev_picks ? "#f44336" : "text.primary", fontWeight: selectedPattern === pattern.prev_picks ? "bold" : "normal" }}>{code}</Typography>
                   <Box sx={{ display: "flex", gap: "2px", flex: 1 }}>{pattern.prev_picks?.split("").map((char, i) => (<Circle key={i} type={char} filled={true} size={16} />))}</Box>
                   <Box sx={{ display: "flex", gap: "2px" }}>
                     {selectedTab === "1pick" && <Circle type={pattern.next_pick_1} filled={false} size={16} />}
@@ -2319,13 +2365,14 @@ export default function PickManagementPage() {
                 gap: 1,
                 p: 1,
                 borderBottom: "1px solid rgba(255,255,255,0.1)",
-                backgroundColor: scrollTargetCode === code ? "rgba(51, 153, 254, 0.15)" : "transparent",
+                backgroundColor: scrollTargetCode === code ? "rgba(51, 153, 254, 0.15)" : (selectedPattern === item.prev_picks ? "rgba(255,255,255,0.2)" : "transparent"),
+                border: selectedPattern === item.prev_picks ? "1px solid rgba(255,255,255,0.4)" : "none",
                 cursor: "pointer",
                 "&:hover": { backgroundColor: "rgba(255,255,255,0.08)" },
               }}
             >
               <Typography variant="body2" sx={{ width: 45, textAlign: "center" }}>{nickname}</Typography>
-              <Typography variant="body2" sx={{ width: 50, textAlign: "center" }}>{code}</Typography>
+              <Typography variant="body2" sx={{ width: 50, textAlign: "center", color: selectedPattern === item.prev_picks ? "#f44336" : "text.primary", fontWeight: selectedPattern === item.prev_picks ? "bold" : "normal" }}>{code}</Typography>
               <Box sx={{ width: 250, display: "flex", gap: 0.3 }}>
                 {prevPicks.split("").map((p, i) => (
                   <Circle key={i} type={p} filled={true} size={20} />

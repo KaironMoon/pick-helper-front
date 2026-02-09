@@ -37,7 +37,7 @@ function PageLayout() {
       <AppBar position="static" sx={{ backgroundColor: theme.palette.background.paper }}>
         <PageHeader isMobile={isMobile} onMenuToggle={handleMenuToggle} />
       </AppBar>
-      <Box sx={{ display: "flex", flexGrow: 1, overflow: "hidden" }}>
+      <Box sx={{ display: "flex", flexGrow: 1, overflow: isMobile ? "visible" : "hidden" }}>
         {isMobile ? (
           <Drawer
             anchor="left"
@@ -69,7 +69,6 @@ function PageLayout() {
             flexGrow: 1,
             backgroundColor: theme.palette.background.default,
             overflow: "auto",
-            height: isMobile ? "calc(100vh - 48px)" : "auto",
           }}
         >
           <Outlet />
