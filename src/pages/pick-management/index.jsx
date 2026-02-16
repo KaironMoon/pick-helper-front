@@ -287,6 +287,17 @@ export default function PickManagementPage() {
   const [currentPick6, setCurrentPick6] = useState(["", "", "", "", "", ""]); // 6pick 배열
   const [currentPickIndex, setCurrentPickIndex] = useState(0); // 현재 입력 위치
   const [pickStat, setPickStat] = useState(null); // 선택된 패턴의 통계
+  // pickMode에 따른 통계 값 선택 헬퍼
+  const getStatByMode = (stat) => {
+    if (!stat) return null;
+    const suffix = pickMode === 1 ? "1" : pickMode === 3 ? "3" : "6";
+    const total = stat[`stat_total${suffix}`] ?? stat.stat_total ?? 0;
+    const hit = stat[`stat_hit${suffix}`] ?? stat.stat_hit ?? 0;
+    const miss = stat[`stat_miss${suffix}`] ?? stat.stat_miss ?? 0;
+    const hitRate = stat[`hit_rate${suffix}`] ?? stat.hit_rate ?? null;
+    const missRate = stat[`miss_rate${suffix}`] ?? stat.miss_rate ?? null;
+    return { total, hit, miss, hitRate, missRate };
+  };
   const [recalculating, setRecalculating] = useState(false); // 통계 갱신 중
   const [recalculateProgress, setRecalculateProgress] = useState(0); // 갱신 진행률
   // 조건 패턴 상태
@@ -508,6 +519,22 @@ export default function PickManagementPage() {
       setRecalculating(false);
       setRecalculateProgress(0);
     };
+  };
+
+  // 약칭 리셋 (적중률 기반)
+  const handleResetNicknames = async () => {
+    if (recalculating) return;
+    if (!confirm(`${pickMode}pick 적중률 기준으로 모든 약칭을 리셋합니다. 계속?`)) return;
+    try {
+      const response = await fetch(`/api/v1/picks2/reset-nicknames?pick_mode=${pickMode}`, { method: "POST" });
+      if (response.ok) {
+        const data = await response.json();
+        alert(`${data.updated}개 패턴 약칭 리셋 완료`);
+        fetchPatterns(false);
+      }
+    } catch (error) {
+      console.error("Failed to reset nicknames:", error);
+    }
   };
 
   // pick_stat 조회
@@ -1166,22 +1193,22 @@ export default function PickManagementPage() {
             </Box>
           </Box>
           {/* 통계 표시 */}
-          {pickStat && (
+          {pickStat && (() => { const s = getStatByMode(pickStat); return s && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-              <Typography sx={{ fontSize: 12, color: "text.secondary" }}>통계:</Typography>
+              <Typography sx={{ fontSize: 12, color: "text.secondary" }}>통계({pickMode}pick):</Typography>
               <Typography sx={{ fontSize: 12 }}>
-                발생 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_total}</Box>
+                발생 <Box component="span" sx={{ fontWeight: "bold" }}>{s.total}</Box>
               </Typography>
               <Typography sx={{ fontSize: 12, color: "#4caf50" }}>
-                적중 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_hit}</Box>
-                {pickStat.hit_rate !== null && `(${pickStat.hit_rate}%)`}
+                적중 <Box component="span" sx={{ fontWeight: "bold" }}>{s.hit}</Box>
+                {s.hitRate !== null && `(${s.hitRate}%)`}
               </Typography>
               <Typography sx={{ fontSize: 12, color: "#f44336" }}>
-                미스 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_miss}</Box>
-                {pickStat.miss_rate !== null && `(${pickStat.miss_rate}%)`}
+                미스 <Box component="span" sx={{ fontWeight: "bold" }}>{s.miss}</Box>
+                {s.missRate !== null && `(${s.missRate}%)`}
               </Typography>
             </Box>
-          )}
+          ); })()}
         </Box>
 
         {/* 우측: 테이블 */}
@@ -1221,6 +1248,22 @@ export default function PickManagementPage() {
               ) : (
                 <Typography sx={{ fontSize: 9 }}>통계갱신</Typography>
               )}
+            </Box>
+            <Box
+              onClick={handleResetNicknames}
+              sx={{
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: 1,
+                px: 1,
+                py: 0.25,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                minWidth: 60,
+                "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+              }}
+            >
+              <Typography sx={{ fontSize: 9 }}>약칭리셋</Typography>
             </Box>
           </Box>
           <Paper sx={{ backgroundColor: "background.paper", overflow: "hidden", display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -1555,22 +1598,22 @@ export default function PickManagementPage() {
           </Box>
         </Box>
         {/* 통계 표시 */}
-        {pickStat && (
+        {pickStat && (() => { const s = getStatByMode(pickStat); return s && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>통계:</Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>통계({pickMode}pick):</Typography>
             <Typography variant="body2">
-              발생 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_total}</Box>
+              발생 <Box component="span" sx={{ fontWeight: "bold" }}>{s.total}</Box>
             </Typography>
             <Typography variant="body2" sx={{ color: "#4caf50" }}>
-              적중 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_hit}</Box>
-              {pickStat.hit_rate !== null && `(${pickStat.hit_rate}%)`}
+              적중 <Box component="span" sx={{ fontWeight: "bold" }}>{s.hit}</Box>
+              {s.hitRate !== null && `(${s.hitRate}%)`}
             </Typography>
             <Typography variant="body2" sx={{ color: "#f44336" }}>
-              미스 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_miss}</Box>
-              {pickStat.miss_rate !== null && `(${pickStat.miss_rate}%)`}
+              미스 <Box component="span" sx={{ fontWeight: "bold" }}>{s.miss}</Box>
+              {s.missRate !== null && `(${s.missRate}%)`}
             </Typography>
           </Box>
-        )}
+        ); })()}
         {/* 서식 범위 선택 */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <IconButton size="small" onClick={handlePrevFormat}><ArrowBack sx={{ fontSize: 20 }} /></IconButton>
@@ -1606,6 +1649,22 @@ export default function PickManagementPage() {
             ) : (
               <Typography variant="caption">통계갱신</Typography>
             )}
+          </Box>
+          <Box
+            onClick={handleResetNicknames}
+            sx={{
+              border: "1px solid rgba(255,255,255,0.3)",
+              borderRadius: 1,
+              px: 1.5,
+              py: 0.5,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              minWidth: 80,
+              "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+            }}
+          >
+            <Typography variant="caption">약칭리셋</Typography>
           </Box>
         </Box>
         {/* 테이블 */}
@@ -2215,30 +2274,30 @@ export default function PickManagementPage() {
       </Box>
 
       {/* 통계 표시 */}
-      {pickStat && (
+      {pickStat && (() => { const s = getStatByMode(pickStat); return s && (
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            통계:
+            통계({pickMode}pick):
           </Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2">
-              발생 <Box component="span" sx={{ fontWeight: "bold", color: "#fff" }}>{pickStat.stat_total}</Box>회
+              발생 <Box component="span" sx={{ fontWeight: "bold", color: "#fff" }}>{s.total}</Box>회
             </Typography>
             <Typography variant="body2" sx={{ color: "#4caf50" }}>
-              적중 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_hit}</Box>회
-              {pickStat.hit_rate !== null && (
-                <Box component="span" sx={{ ml: 0.5 }}>({pickStat.hit_rate}%)</Box>
+              적중 <Box component="span" sx={{ fontWeight: "bold" }}>{s.hit}</Box>회
+              {s.hitRate !== null && (
+                <Box component="span" sx={{ ml: 0.5 }}>({s.hitRate}%)</Box>
               )}
             </Typography>
             <Typography variant="body2" sx={{ color: "#f44336" }}>
-              미스 <Box component="span" sx={{ fontWeight: "bold" }}>{pickStat.stat_miss}</Box>회
-              {pickStat.miss_rate !== null && (
-                <Box component="span" sx={{ ml: 0.5 }}>({pickStat.miss_rate}%)</Box>
+              미스 <Box component="span" sx={{ fontWeight: "bold" }}>{s.miss}</Box>회
+              {s.missRate !== null && (
+                <Box component="span" sx={{ ml: 0.5 }}>({s.missRate}%)</Box>
               )}
             </Typography>
           </Box>
         </Box>
-      )}
+      ); })()}
 
       {/* 서식 범위 선택 */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
@@ -2288,6 +2347,22 @@ export default function PickManagementPage() {
           ) : (
             <Typography variant="caption">통계갱신</Typography>
           )}
+        </Box>
+        <Box
+          onClick={handleResetNicknames}
+          sx={{
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: 1,
+            px: 1.5,
+            py: 0.5,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            minWidth: 80,
+            "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+          }}
+        >
+          <Typography variant="caption">약칭리셋</Typography>
         </Box>
       </Box>
       </Box>
