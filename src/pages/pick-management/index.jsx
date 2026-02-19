@@ -1093,6 +1093,21 @@ export default function PickManagementPage() {
             >
               <Typography sx={{ fontSize: 12 }}>삭제</Typography>
             </Box>
+            {/* Mirror */}
+            <Box
+              onClick={handleApplyMirror}
+              sx={{
+                px: 0.5, height: 56,
+                border: "1px solid #9c27b0",
+                borderRadius: 1,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: fetchCode ? "pointer" : "default",
+                opacity: fetchCode ? 1 : 0.5,
+                "&:hover": fetchCode ? { backgroundColor: "rgba(156, 39, 176, 0.2)" } : {},
+              }}
+            >
+              <Typography sx={{ fontSize: 10, color: "#ce93d8" }}>MR</Typography>
+            </Box>
             {/* 코드 입력 + 가져오기 */}
             <TextField
               size="small"
@@ -1118,7 +1133,7 @@ export default function PickManagementPage() {
                 cursor: "pointer",
               }}
             >
-              <Typography sx={{ fontSize: 11 }}>가져오기</Typography>
+              <Typography sx={{ fontSize: 10 }}>GET</Typography>
             </Box>
             {/* DL */}
             <TextField
@@ -1162,7 +1177,7 @@ export default function PickManagementPage() {
                 <Box onClick={() => { if (!fetchCode) return; const newValue = !condEnabled1; if (newValue) { const pattern = condPattern1.replace(/ +$/, ""); if (!pattern) { alert("패턴을 입력하세요."); return; } if (pattern.includes(" ")) { alert("패턴이 끊어져 있습니다."); return; } } setCondEnabled1(newValue); handleCondPatternSave(1, "enabled", newValue); }}
                   sx={{ px: 1, height: 28, fontSize: 11, borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", border: condEnabled1 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)", backgroundColor: condEnabled1 ? "rgba(76, 175, 80, 0.15)" : "transparent", color: condEnabled1 ? "#4caf50" : "rgba(255,255,255,0.5)", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>Y</Box>
                 <Box onClick={() => { if (!fetchCode) return; setCondReverse1(!condReverse1); handleCondPatternSave(1, "reverse", !condReverse1); }}
-                  sx={{ px: 1, height: 28, fontSize: 11, borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", border: condReverse1 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)", backgroundColor: condReverse1 ? "rgba(76, 175, 80, 0.15)" : "transparent", color: condReverse1 ? "#4caf50" : "rgba(255,255,255,0.5)", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>R</Box>
+                  sx={{ minWidth: 28, height: 28, fontSize: 11, borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #4caf50", backgroundColor: condReverse1 ? "rgba(76, 175, 80, 0.15)" : "transparent", color: "#4caf50", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>{condReverse1 ? "R" : "NR"}</Box>
               </Box>
             </Box>
             {/* 조건 패턴 2 */}
@@ -1188,7 +1203,7 @@ export default function PickManagementPage() {
                 <Box onClick={() => { if (!fetchCode) return; const newValue = !condEnabled2; if (newValue) { const pattern = condPattern2.replace(/ +$/, ""); if (!pattern) { alert("패턴을 입력하세요."); return; } if (pattern.includes(" ")) { alert("패턴이 끊어져 있습니다."); return; } } setCondEnabled2(newValue); handleCondPatternSave(2, "enabled", newValue); }}
                   sx={{ px: 1, height: 28, fontSize: 11, borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", border: condEnabled2 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)", backgroundColor: condEnabled2 ? "rgba(76, 175, 80, 0.15)" : "transparent", color: condEnabled2 ? "#4caf50" : "rgba(255,255,255,0.5)", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>Y</Box>
                 <Box onClick={() => { if (!fetchCode) return; setCondReverse2(!condReverse2); handleCondPatternSave(2, "reverse", !condReverse2); }}
-                  sx={{ px: 1, height: 28, fontSize: 11, borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", border: condReverse2 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)", backgroundColor: condReverse2 ? "rgba(76, 175, 80, 0.15)" : "transparent", color: condReverse2 ? "#4caf50" : "rgba(255,255,255,0.5)", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>R</Box>
+                  sx={{ minWidth: 28, height: 28, fontSize: 11, borderRadius: 0.5, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #4caf50", backgroundColor: condReverse2 ? "rgba(76, 175, 80, 0.15)" : "transparent", color: "#4caf50", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>{condReverse2 ? "R" : "NR"}</Box>
               </Box>
             </Box>
           </Box>
@@ -1393,18 +1408,21 @@ export default function PickManagementPage() {
             </Box>
           ) : (
             <Box sx={{ display: "flex", gap: 0.5 }}>
-              <Box onClick={() => handlePickClick("P", 0)} sx={{ width: 56, height: 56, borderRadius: 1, backgroundColor: currentPick1 === "P" ? "#1565c0" : "#9e9e9e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: "bold", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>P</Box>
-              <Box onClick={() => handlePickClick("B", 0)} sx={{ width: 56, height: 56, borderRadius: 1, backgroundColor: currentPick1 === "B" ? "#f44336" : "#9e9e9e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: "bold", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>B</Box>
+              <Box onClick={() => handlePickClick("P", 0)} sx={{ width: 44, height: 44, borderRadius: 1, backgroundColor: currentPick1 === "P" ? "#1565c0" : "#9e9e9e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 18, fontWeight: "bold", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>P</Box>
+              <Box onClick={() => handlePickClick("B", 0)} sx={{ width: 44, height: 44, borderRadius: 1, backgroundColor: currentPick1 === "B" ? "#f44336" : "#9e9e9e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 18, fontWeight: "bold", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>B</Box>
             </Box>
           )}
-          <Box onClick={handleDeletePick} sx={{ px: 1.5, height: 56, border: "1px solid rgba(255,255,255,0.5)", borderRadius: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>
-            <Typography sx={{ fontSize: 13 }}>삭제</Typography>
+          <Box onClick={handleDeletePick} sx={{ px: 0.75, height: 44, border: "1px solid rgba(255,255,255,0.5)", borderRadius: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5 }}>
+            <Typography sx={{ fontSize: 11 }}>삭제</Typography>
           </Box>
-          <TextField size="small" placeholder="1-1" value={fetchCode} onChange={(e) => setFetchCode(e.target.value)} sx={{ width: 70, "& .MuiOutlinedInput-root": { height: 44, "& fieldset": { borderColor: "#1565c0" } }, "& .MuiInputBase-input": { textAlign: "center", fontSize: 16, p: 0.5 } }} />
-          <Box onClick={handleFetchByCode} sx={{ height: 44, px: 1.5, border: "1px solid #4caf50", borderRadius: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-            <Typography sx={{ fontSize: 13 }}>가져오기</Typography>
+          <Box onClick={handleApplyMirror} sx={{ px: 0.5, height: 44, border: "1px solid #9c27b0", borderRadius: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5, "&:hover": fetchCode ? { backgroundColor: "rgba(156, 39, 176, 0.2)" } : {} }}>
+            <Typography sx={{ fontSize: 10, color: "#ce93d8" }}>MR</Typography>
           </Box>
-          <TextField size="small" placeholder="DL" value={dlNickname} onChange={(e) => setDlNickname(e.target.value)} onBlur={handleDlBlur} sx={{ width: 55, "& .MuiOutlinedInput-root": { height: 44, "& fieldset": { borderColor: "rgba(255,255,255,0.5)" } }, "& .MuiInputBase-input": { textAlign: "center", fontSize: 13, p: 0.5 } }} />
+          <TextField size="small" placeholder="1-1" value={fetchCode} onChange={(e) => setFetchCode(e.target.value)} sx={{ width: 60, "& .MuiOutlinedInput-root": { height: 36, "& fieldset": { borderColor: "#1565c0" } }, "& .MuiInputBase-input": { textAlign: "center", fontSize: 14, p: 0.5 } }} />
+          <Box onClick={handleFetchByCode} sx={{ height: 36, px: 0.75, border: "1px solid #4caf50", borderRadius: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <Typography sx={{ fontSize: 10 }}>GET</Typography>
+          </Box>
+          <TextField size="small" placeholder="DL" value={dlNickname} onChange={(e) => setDlNickname(e.target.value)} onBlur={handleDlBlur} sx={{ width: 45, "& .MuiOutlinedInput-root": { height: 36, "& fieldset": { borderColor: "rgba(255,255,255,0.5)" } }, "& .MuiInputBase-input": { textAlign: "center", fontSize: 11, p: 0.5 } }} />
           {/* P/B 퍼센트 */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <Box sx={{ width: 36, height: 36, borderRadius: 1, border: "2px solid #0d47a1", backgroundColor: "#3399fe", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: "bold" }}>P</Box>
@@ -1497,13 +1515,13 @@ export default function PickManagementPage() {
                 handleCondPatternSave(1, "reverse", !condReverse1);
               }}
               sx={{
-                px: 0.75, py: 0.25, fontSize: 10, ml: 0.5,
-                border: condReverse1 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+                minWidth: 24, py: 0.25, fontSize: 10, ml: 0.5, textAlign: "center",
+                border: "1px solid #4caf50",
                 backgroundColor: condReverse1 ? "rgba(76, 175, 80, 0.15)" : "transparent",
-                color: condReverse1 ? "#4caf50" : "rgba(255,255,255,0.5)",
+                color: "#4caf50",
                 cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5,
               }}
-            >Rev</Box>
+            >{condReverse1 ? "R" : "NR"}</Box>
           </Box>
         </Box>
         {/* 조건 패턴 2 - 모바일 */}
@@ -1588,13 +1606,13 @@ export default function PickManagementPage() {
                 handleCondPatternSave(2, "reverse", !condReverse2);
               }}
               sx={{
-                px: 0.75, py: 0.25, fontSize: 10, ml: 0.5,
-                border: condReverse2 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+                minWidth: 24, py: 0.25, fontSize: 10, ml: 0.5, textAlign: "center",
+                border: "1px solid #4caf50",
                 backgroundColor: condReverse2 ? "rgba(76, 175, 80, 0.15)" : "transparent",
-                color: condReverse2 ? "#4caf50" : "rgba(255,255,255,0.5)",
+                color: "#4caf50",
                 cursor: fetchCode ? "pointer" : "default", opacity: fetchCode ? 1 : 0.5,
               }}
-            >Rev</Box>
+            >{condReverse2 ? "R" : "NR"}</Box>
           </Box>
         </Box>
         {/* 통계 표시 */}
@@ -2145,14 +2163,14 @@ export default function PickManagementPage() {
             sx={{
               width: 50, py: 0.5, fontSize: 12, ml: 1,
               textAlign: "center",
-              border: condReverse1 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+              border: "1px solid #4caf50",
               backgroundColor: condReverse1 ? "rgba(76, 175, 80, 0.15)" : "transparent",
-              color: condReverse1 ? "#4caf50" : "rgba(255,255,255,0.5)",
+              color: "#4caf50",
               cursor: fetchCode ? "pointer" : "default",
               opacity: fetchCode ? 1 : 0.5,
             }}
           >
-            revers
+            {condReverse1 ? "R" : "NR"}
           </Box>
         </Box>
       </Box>
@@ -2261,14 +2279,14 @@ export default function PickManagementPage() {
             sx={{
               width: 50, py: 0.5, fontSize: 12, ml: 1,
               textAlign: "center",
-              border: condReverse2 ? "1px solid #4caf50" : "1px solid rgba(255,255,255,0.3)",
+              border: "1px solid #4caf50",
               backgroundColor: condReverse2 ? "rgba(76, 175, 80, 0.15)" : "transparent",
-              color: condReverse2 ? "#4caf50" : "rgba(255,255,255,0.5)",
+              color: "#4caf50",
               cursor: fetchCode ? "pointer" : "default",
               opacity: fetchCode ? 1 : 0.5,
             }}
           >
-            revers
+            {condReverse2 ? "R" : "NR"}
           </Box>
         </Box>
       </Box>
