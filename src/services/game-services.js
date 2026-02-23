@@ -21,20 +21,26 @@ export const deleteGame = (gameSeq) => {
   return apiCaller.delete(`/api/v1/game/${gameSeq}`);
 };
 
-// V2 게임 상세 조회 (pick_mode: 1/3/6)
-export const getGameV2 = (gameSeq, pickMode = 1) => {
-  const params = pickMode !== 1 ? { pick_mode: pickMode } : {};
+// V2 게임 상세 조회 (pick_mode: 1/3/6, set_id)
+export const getGameV2 = (gameSeq, pickMode = 1, setId = 1) => {
+  const params = {};
+  if (pickMode !== 1) params.pick_mode = pickMode;
+  if (setId !== 1) params.set_id = setId;
   return apiCaller.get(`/api/v1/game/v2/${gameSeq}`, params);
 };
 
 // 패턴별 게임 목록 조회 (앞 4자리)
-export const getGamesByPattern = (pattern, limit = 20) => {
-  return apiCaller.get(`/api/v1/game/by-pattern/${pattern}`, { limit });
+export const getGamesByPattern = (pattern, limit = 20, setId = 1) => {
+  const params = { limit };
+  if (setId !== 1) params.set_id = setId;
+  return apiCaller.get(`/api/v1/game/by-pattern/${pattern}`, params);
 };
 
 // 전체 게임 목록 조회 (통계 포함)
-export const getAllGamesWithStats = (limit = 500) => {
-  return apiCaller.get("/api/v1/game/all-with-stats", { limit });
+export const getAllGamesWithStats = (limit = 500, setId = 1) => {
+  const params = { limit };
+  if (setId !== 1) params.set_id = setId;
+  return apiCaller.get("/api/v1/game/all-with-stats", params);
 };
 
 // 패턴별 게임 수 요약
@@ -47,28 +53,34 @@ export const recalculateGameStats = () => {
   return apiCaller.post("/api/v1/game/recalculate-stats");
 };
 
-// game_stat 테이블에서 통계 조회 (ALL 또는 패턴, pick_mode: 1/3/6)
-export const getGameStat = (statKey, pickMode = 1) => {
-  const params = pickMode !== 1 ? { pick_mode: pickMode } : {};
+// game_stat 테이블에서 통계 조회 (ALL 또는 패턴, pick_mode: 1/3/6, set_id)
+export const getGameStat = (statKey, pickMode = 1, setId = 1) => {
+  const params = {};
+  if (pickMode !== 1) params.pick_mode = pickMode;
+  if (setId !== 1) params.set_id = setId;
   return apiCaller.get(`/api/v1/game/stat/${statKey}`, params);
 };
 
-// 페이지네이션 API (서버사이드, pick_mode: 1/3/6)
-export const getGamesPaginated = (page = 1, pageSize = 10, streakFilter = null, pickMode = 1) => {
+// 페이지네이션 API (서버사이드, pick_mode: 1/3/6, set_id)
+export const getGamesPaginated = (page = 1, pageSize = 10, streakFilter = null, pickMode = 1, setId = 1) => {
   const params = { page, page_size: pageSize };
   if (streakFilter) params.streak_filter = streakFilter;
   if (pickMode !== 1) params.pick_mode = pickMode;
+  if (setId !== 1) params.set_id = setId;
   return apiCaller.get("/api/v1/game/paginated", params);
 };
 
-export const getGamesByPatternPaginated = (pattern, page = 1, pageSize = 10, streakFilter = null, pickMode = 1) => {
+export const getGamesByPatternPaginated = (pattern, page = 1, pageSize = 10, streakFilter = null, pickMode = 1, setId = 1) => {
   const params = { page, page_size: pageSize };
   if (streakFilter) params.streak_filter = streakFilter;
   if (pickMode !== 1) params.pick_mode = pickMode;
+  if (setId !== 1) params.set_id = setId;
   return apiCaller.get(`/api/v1/game/by-pattern/${pattern}/paginated`, params);
 };
 
 // 턴 상세 조회 (DB prev_picks, predict, result)
-export const getTurnDetail = (gameSeq, turnNo) => {
-  return apiCaller.get(`/api/v1/game/turn-detail/${gameSeq}/${turnNo}`);
+export const getTurnDetail = (gameSeq, turnNo, setId = 1) => {
+  const params = {};
+  if (setId !== 1) params.set_id = setId;
+  return apiCaller.get(`/api/v1/game/turn-detail/${gameSeq}/${turnNo}`, params);
 };

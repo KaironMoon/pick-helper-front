@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { Box, Typography, Paper, IconButton, TextField, useMediaQuery, CircularProgress } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { ArrowBack, ArrowForward } from "@mui/icons-material";
+import { useAtomValue } from "jotai";
+import { currentSetIdAtom } from "../../store/pick-set-store";
 
 // 순회 순서: A1 → B1 → C1 → D1 → E1 → E2 → F1~F4 → G1~G8 → 1~8 → A1
 // (9~16은 1~8의 거울상이므로 제외)
@@ -265,6 +267,7 @@ const calculateCircleGrid = (prevPicks, gridRows, gridCols, nextPicks = []) => {
 };
 
 export default function PickManagementPage() {
+  const currentSetId = useAtomValue(currentSetIdAtom);
   const [searchParams, setSearchParams] = useSearchParams();
   const [formatRange, setFormatRange] = useState(() => {
     const saved = localStorage.getItem("pickManagement_formatRange");
@@ -336,8 +339,9 @@ export default function PickManagementPage() {
     if (showLoading) setLoading(true);
     try {
       // 11자리 패턴(1~8)인 경우 half 파라미터 추가
-      const halfParam = shouldSplitIntoHalves(formatRange) ? `?half=${half}` : "";
-      const response = await fetch(`/api/v1/picks2/list/${formatRange}${halfParam}`);
+      const params = new URLSearchParams({ set_id: currentSetId });
+      if (shouldSplitIntoHalves(formatRange)) params.set("half", half);
+      const response = await fetch(`/api/v1/picks2/list/${formatRange}?${params}`);
       if (response.ok) {
         const data = await response.json();
         setPatterns(data);
@@ -372,7 +376,7 @@ export default function PickManagementPage() {
         if (parts.length === 2) {
           const code1 = parts[0];
           const code2 = parts[1];
-          fetch(`/api/v1/picks2/code/${code1}/${code2}`)
+          fetch(`/api/v1/picks2/code/${code1}/${code2}?set_id=${currentSetId}`)
             .then(r => r.ok ? r.json() : null)
             .then(data => {
               if (!data) return;
@@ -498,7 +502,7 @@ export default function PickManagementPage() {
     setRecalculating(true);
     setRecalculateProgress(0);
 
-    const eventSource = new EventSource("/api/v1/game/recalculate-stats/stream");
+    const eventSource = new EventSource(`/api/v1/game/recalculate-stats/stream?set_id=${currentSetId}`);
 
     eventSource.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -526,7 +530,7 @@ export default function PickManagementPage() {
     if (recalculating) return;
     if (!confirm(`${pickMode}pick 적중률 기준으로 모든 약칭을 리셋합니다. 계속?`)) return;
     try {
-      const response = await fetch(`/api/v1/picks2/reset-nicknames?pick_mode=${pickMode}`, { method: "POST" });
+      const response = await fetch(`/api/v1/picks2/reset-nicknames?pick_mode=${pickMode}&set_id=${currentSetId}`, { method: "POST" });
       if (response.ok) {
         const data = await response.json();
         alert(`${data.updated}개 패턴 약칭 리셋 완료`);
@@ -544,7 +548,7 @@ export default function PickManagementPage() {
       return;
     }
     try {
-      const response = await fetch(`/api/v1/picks2/stat/${prevPicks}`);
+      const response = await fetch(`/api/v1/picks2/stat/${prevPicks}?set_id=${currentSetId}`);
       if (response.ok) {
         const data = await response.json();
         setPickStat(data);
@@ -593,7 +597,7 @@ export default function PickManagementPage() {
     // P와 B로만 이루어진 경우 → 패턴으로 검색
     if (/^[PB]+$/.test(input)) {
       try {
-        const url = `/api/v1/picks2/pattern/${input}?prev_results=${encodeURIComponent(input)}`;
+        const url = `/api/v1/picks2/pattern/${input}?prev_results=${encodeURIComponent(input)}&set_id=${currentSetId}`;
         console.log("[DEBUG] Fetching URL:", url);
         const response = await fetch(url);
         if (response.ok) {
@@ -657,7 +661,7 @@ export default function PickManagementPage() {
     }
 
     try {
-      const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`);
+      const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}?set_id=${currentSetId}`);
       if (response.ok) {
         const data = await response.json();
         const prevPicks = data.prev_picks || "";
@@ -720,7 +724,7 @@ export default function PickManagementPage() {
     }
 
     try {
-      const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
+      const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}?set_id=${currentSetId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -745,7 +749,7 @@ export default function PickManagementPage() {
     const code2 = parts[1];
 
     try {
-      const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
+      const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}?set_id=${currentSetId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nickname: dlNickname }),
@@ -775,7 +779,7 @@ export default function PickManagementPage() {
     if (pickMode === 1) {
       // 1pick 모드
       try {
-        const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
+        const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}?set_id=${currentSetId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ next_pick_1: pick }),
@@ -797,7 +801,7 @@ export default function PickManagementPage() {
       // 서버 저장
       const pickStr = newPicks.join("");
       try {
-        const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
+        const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}?set_id=${currentSetId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ next_pick_3: pickStr }),
@@ -818,7 +822,7 @@ export default function PickManagementPage() {
       // 서버 저장
       const pickStr = newPicks.join("");
       try {
-        const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
+        const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}?set_id=${currentSetId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ next_pick_6: pickStr }),
@@ -846,7 +850,7 @@ export default function PickManagementPage() {
     const fieldName = pickMode === 1 ? "next_pick_1" : pickMode === 3 ? "next_pick_3" : "next_pick_6";
 
     try {
-      const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}`, {
+      const response = await fetch(`/api/v1/picks2/code/${code1}/${code2}?set_id=${currentSetId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [fieldName]: "" }),
@@ -879,7 +883,7 @@ export default function PickManagementPage() {
     const code2 = parts[1];
 
     try {
-      const response = await fetch(`/api/v1/picks2/apply-mirror/${code1}/${code2}`, {
+      const response = await fetch(`/api/v1/picks2/apply-mirror/${code1}/${code2}?set_id=${currentSetId}`, {
         method: "POST",
       });
 

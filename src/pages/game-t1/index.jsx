@@ -2,6 +2,8 @@ import { useState, useCallback } from "react";
 import { Box, Typography, Paper, useMediaQuery, useTheme } from "@mui/material";
 import { saveGameV2 } from "@/services/game-services";
 import { getPick2WithAdjustment } from "@/services/picks-services";
+import { useAtomValue } from "jotai";
+import { currentSetIdAtom } from "../../store/pick-set-store";
 
 const GRID_ROWS = 6;
 const GRID_COLS = 42;
@@ -121,6 +123,7 @@ const calculateCircleGrid = (results, nextPicks = []) => {
 export default function GameT1Page() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const currentSetId = useAtomValue(currentSetIdAtom);
 
   const [results, setResults] = useState([]);
   const [currentPick, setCurrentPick] = useState(null); // 시스템이 제공한 픽 (1pick용)
@@ -146,7 +149,7 @@ export default function GameT1Page() {
       return;
     }
     try {
-      const response = await getPick2WithAdjustment(pattern, prevResults);
+      const response = await getPick2WithAdjustment(pattern, prevResults, currentSetId);
       const pickCode = `${response.data.code1}-${response.data.code2}`;
       setCurrentPicksSeq(response.data.picks2_seq);
       setCurrentPickCode(pickCode);
@@ -167,7 +170,7 @@ export default function GameT1Page() {
       setCurrentPickCode(null);
       setCurrentNickname(null);
     }
-  }, []);
+  }, [currentSetId]);
 
   // 현재 모드에 따른 예측 픽 가져오기 (predictOrder 반영)
   const getCurrentPredict = () => {

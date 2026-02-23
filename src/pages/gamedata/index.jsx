@@ -4,6 +4,8 @@ import { Box, Typography, Paper, IconButton, Select, MenuItem, useMediaQuery, us
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import { deleteGame, getGameV2, getGameStat, getGamesPaginated, getGamesByPatternPaginated, getTurnDetail } from "@/services/game-services";
+import { useAtomValue } from "jotai";
+import { currentSetIdAtom } from "../../store/pick-set-store";
 
 const GRID_ROWS = 6;
 const GRID_COLS = 42;
@@ -173,6 +175,7 @@ export default function GamedataPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const navigate = useNavigate();
+  const currentSetId = useAtomValue(currentSetIdAtom);
 
   // localStorage에서 마지막 게임 상태 복원
   const savedLastGame = useRef(() => {
@@ -209,7 +212,7 @@ export default function GamedataPage() {
     setRecalculating(true);
     setRecalcProgress(0);
 
-    const eventSource = new EventSource("/api/v1/game/recalculate-stats/stream");
+    const eventSource = new EventSource(`/api/v1/game/recalculate-stats/stream?set_id=${currentSetId}`);
 
     eventSource.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -266,9 +269,9 @@ export default function GamedataPage() {
     try {
       let response;
       if (pattern === "ALL") {
-        response = await getGamesPaginated(page, itemsPerPage, streak, mode);
+        response = await getGamesPaginated(page, itemsPerPage, streak, mode, currentSetId);
       } else {
-        response = await getGamesByPatternPaginated(pattern, page, itemsPerPage, streak, mode);
+        response = await getGamesByPatternPaginated(pattern, page, itemsPerPage, streak, mode, currentSetId);
       }
       const data = response.data;
       setGames(data.items || []);
@@ -285,38 +288,38 @@ export default function GamedataPage() {
       setTotalCount(0);
     }
     setLoading(false);
-  }, [itemsPerPage]);
+  }, [itemsPerPage, currentSetId]);
 
   // 패턴 통계 조회 (game_stat 테이블)
   const fetchPatternStat = useCallback(async (pattern, mode) => {
     try {
-      const response = await getGameStat(pattern, mode);
+      const response = await getGameStat(pattern, mode, currentSetId);
       setPatternStat(response.data);
     } catch (error) {
       console.error("Failed to fetch pattern stat:", error);
       setPatternStat(null);
     }
-  }, []);
+  }, [currentSetId]);
 
-  // pickMode 변경 시 선택된 게임의 turns 재조회
+  // pickMode 또는 setId 변경 시 선택된 게임의 turns 재조회
   useEffect(() => {
     if (selectedGameIndex !== null && games[selectedGameIndex]) {
       const game = games[selectedGameIndex];
-      getGameV2(game.game_seq, pickMode).then(res => {
+      getGameV2(game.game_seq, pickMode, currentSetId).then(res => {
         setSelectedGameTurns(res.data?.turns || []);
       }).catch(() => setSelectedGameTurns([]));
     }
-  }, [pickMode]);
+  }, [pickMode, currentSetId]);
 
   // 패턴 또는 페이지 변경시 데이터 조회
   useEffect(() => {
     fetchGames(currentPattern.pattern, currentPage, streakFilter, pickMode);
-  }, [patternIndex, currentPage, itemsPerPage, streakFilter, pickMode, fetchGames, currentPattern.pattern]);
+  }, [patternIndex, currentPage, itemsPerPage, streakFilter, pickMode, currentSetId, fetchGames, currentPattern.pattern]);
 
   // 패턴 변경시 통계 조회
   useEffect(() => {
     fetchPatternStat(currentPattern.pattern, pickMode);
-  }, [patternIndex, pickMode, fetchPatternStat, currentPattern.pattern]);
+  }, [patternIndex, pickMode, currentSetId, fetchPatternStat, currentPattern.pattern]);
 
   // 이전 패턴
   const handlePrevPattern = () => {
@@ -360,7 +363,7 @@ export default function GamedataPage() {
       }));
 
       try {
-        const response = await getGameV2(game.game_seq, pickMode);
+        const response = await getGameV2(game.game_seq, pickMode, currentSetId);
         setSelectedGameTurns(response.data?.turns || []);
       } catch (error) {
         console.error("Failed to fetch game detail:", error);
@@ -415,7 +418,7 @@ export default function GamedataPage() {
                 if (!cell?.turnNo || !selectedGame) return;
                 setSelectedTurnNo(cell.turnNo);
                 try {
-                  const res = await getTurnDetail(selectedGame.game_seq, cell.turnNo);
+                  const res = await getTurnDetail(selectedGame.game_seq, cell.turnNo, currentSetId);
                   setTurnDetail(res.data);
                 } catch (e) {
                   console.error("Failed to fetch turn detail:", e);

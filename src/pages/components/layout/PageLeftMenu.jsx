@@ -7,6 +7,7 @@ import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import StorageIcon from "@mui/icons-material/Storage";
 import CasinoIcon from "@mui/icons-material/Casino";
+import FolderCopyIcon from "@mui/icons-material/FolderCopy";
 
 import { useNavigate } from "react-router-dom";
 
@@ -102,6 +103,14 @@ function PageLeftMenu({ isMobile, onMenuClose }) {
                   <CasinoIcon />
                 </ListItemIcon>
                 <ListItemText primary="Random Pick" />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => handleNavClick("/pick-set")}>
+                <ListItemIcon>
+                  <FolderCopyIcon />
+                </ListItemIcon>
+                <ListItemText primary="Pick Set" />
               </ListItemButton>
             </ListItem>
           </List>

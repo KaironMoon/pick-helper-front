@@ -27,13 +27,14 @@ export const addPattern = (prevPicks, nextPick = null) => {
 };
 
 // picks2 API
-export const getPick2ByPattern = (prevPicks, prevResults = null) => {
-  const params = prevResults ? { prev_results: prevResults } : {};
+export const getPick2ByPattern = (prevPicks, prevResults = null, setId = 1) => {
+  const params = { set_id: setId };
+  if (prevResults) params.prev_results = prevResults;
   return apiCaller.get(`/api/v1/picks2/pattern/${prevPicks}`, params);
 };
 
 // jcn/jck 및 조건 패턴 보정 포함 픽 조회
-export const getPick2WithAdjustment = async (prevPicks, prevResults) => {
+export const getPick2WithAdjustment = async (prevPicks, prevResults, setId = 1) => {
   // prev_results 항상 전달 (조건 패턴 + jcn/jck 로직 적용)
-  return getPick2ByPattern(prevPicks, prevResults);
+  return getPick2ByPattern(prevPicks, prevResults, setId);
 };
