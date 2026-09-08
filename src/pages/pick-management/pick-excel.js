@@ -2,11 +2,11 @@ export const PICK_EXCEL_ROW_COUNT = 4080;
 
 export const PICK_EXCEL_HEADERS = [
   "약칭",
-  "번호",
   ...Array.from({ length: 11 }, (_, index) => `패턴${index + 1}`),
   "1pick",
   ...Array.from({ length: 3 }, (_, index) => `3pick${index + 1}`),
   ...Array.from({ length: 6 }, (_, index) => `6pick${index + 1}`),
+  "번호",
 ];
 
 const tsvCell = (value) => String(value ?? "").replace(/[\t\r\n]+/g, " ");
@@ -16,14 +16,31 @@ function splitIntoCells(value, length) {
   return [...cells, ...Array(Math.max(0, length - cells.length)).fill("")];
 }
 
+function excelTextFormula(value) {
+  return `="${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function normalizeExcelNumber(value) {
+  let normalized = String(value || "").replace(/[\u200B\u2060\uFEFF]/g, "").trim().toUpperCase();
+  const formulaMatch = normalized.match(/^="([^"]+)"$/);
+  if (formulaMatch) normalized = formulaMatch[1].replaceAll('""', '"');
+  if (normalized.startsWith("'")) normalized = normalized.slice(1);
+
+  const koreanDateMatch = normalized.match(/^(\d{1,2})월\s*(\d{1,2})일$/);
+  if (koreanDateMatch) {
+    normalized = `${Number(koreanDateMatch[1])}-${Number(koreanDateMatch[2])}`;
+  }
+  return normalized;
+}
+
 export function serializePickExcelTsv(rows) {
   const body = rows.map((row) => [
     row.nickname || "",
-    row.number,
     ...splitIntoCells(row.prev_picks, 11),
     ...splitIntoCells(row.next_pick_1, 1),
     ...splitIntoCells(row.next_pick_3, 3),
     ...splitIntoCells(row.next_pick_6, 6),
+    excelTextFormula(row.number),
   ]);
   return [PICK_EXCEL_HEADERS, ...body]
     .map((row) => row.map(tsvCell).join("\t"))
@@ -32,16 +49,20 @@ export function serializePickExcelTsv(rows) {
 
 export async function writePickExcelClipboard(
   text,
-  { clipboard = globalThis.navigator?.clipboard, doc = globalThis.document } = {},
+  {
+    clipboard = globalThis.navigator?.clipboard,
+    doc = globalThis.document,
+  } = {},
 ) {
   if (clipboard?.writeText) {
     try {
       await clipboard.writeText(text);
       return "text";
     } catch {
-      // 권한 오류인 경우 동기식 선택 복사로 이어간다.
+      // 권한 문제면 동기식 텍스트 선택 복사로 이어간다.
     }
   }
+
   if (doc?.body && typeof doc.execCommand === "function") {
     const textarea = doc.createElement("textarea");
     let copied = false;
@@ -58,7 +79,8 @@ export async function writePickExcelClipboard(
     } finally {
       textarea.remove();
     }
-    if (copied) return "text";
+    if (!copied) throw new Error("Clipboard copy failed.");
+    return "text";
   }
   throw new Error("Clipboard copy failed.");
 }
@@ -109,7 +131,7 @@ export function parsePickExcelTsv(text, expectedRows) {
       errors.push(`${excelRow}행: 열 개수가 ${cells.length}개입니다. ${PICK_EXCEL_HEADERS.length}개가 필요합니다.`);
       return;
     }
-    const number = cells[1].toUpperCase();
+    const number = normalizeExcelNumber(cells[22]);
     const expected = expectedByNumber.get(number);
     if (!expected) {
       errors.push(`${excelRow}행: 현재 픽 세트에 없는 번호 ‘${number || "빈칸"}’입니다.`);
@@ -120,14 +142,14 @@ export function parsePickExcelTsv(text, expectedRows) {
       return;
     }
 
-    const patternCells = cells.slice(2, 13).map((value) => value.toUpperCase());
+    const patternCells = cells.slice(1, 12).map((value) => value.toUpperCase());
     const expectedPatternCells = splitIntoCells(expected.prev_picks, 11);
     if (patternCells.some((value, index) => value !== expectedPatternCells[index])) {
       errors.push(`${excelRow}행: 번호 ${number}와 패턴이 일치하지 않습니다.`);
     }
-    const nextPick1 = parsePickCells(cells.slice(13, 14), "1pick", excelRow, errors);
-    const nextPick3 = parsePickCells(cells.slice(14, 17), "3pick", excelRow, errors);
-    const nextPick6 = parsePickCells(cells.slice(17, 23), "6pick", excelRow, errors);
+    const nextPick1 = parsePickCells(cells.slice(12, 13), "1pick", excelRow, errors);
+    const nextPick3 = parsePickCells(cells.slice(13, 16), "3pick", excelRow, errors);
+    const nextPick6 = parsePickCells(cells.slice(16, 22), "6pick", excelRow, errors);
     imported.set(number, {
       number,
       nickname: cells[0],

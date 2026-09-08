@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography, Paper, IconButton, TextField, useMediaQuery, CircularProgress } from "@mui/material";
+import { Box, Typography, Paper, IconButton, TextField, useMediaQuery, CircularProgress } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { ArrowBack, ArrowForward } from "@mui/icons-material";
 import { useAtomValue } from "jotai";
 import { currentSetIdAtom } from "../../store/pick-set-store";
-import { parsePickExcelTsv, serializePickExcelTsv, writePickExcelClipboard } from "./pick-excel";
 
 // 순회 순서: A1 → B1 → C1 → D1 → E1 → E2 → F1~F4 → G1~G8 → 1~8 → A1
 // (9~16은 1~8의 거울상이므로 제외)
@@ -311,11 +310,6 @@ export default function PickManagementPage() {
   const [condPattern2, setCondPattern2] = useState("");
   const [condReverse2, setCondReverse2] = useState(false);
   const [condEnabled2, setCondEnabled2] = useState(false);
-  const [excelBusy, setExcelBusy] = useState(false);
-  const [excelOpen, setExcelOpen] = useState(false);
-  const [excelText, setExcelText] = useState("");
-  const [excelRows, setExcelRows] = useState([]);
-  const [excelResult, setExcelResult] = useState(null);
   const rowRefs = useRef({}); // 행 refs
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -544,71 +538,6 @@ export default function PickManagementPage() {
       }
     } catch (error) {
       console.error("Failed to reset nicknames:", error);
-    }
-  };
-
-  const fetchAllExcelRows = async () => {
-    const response = await fetch(`/api/v1/picks2/excel?set_id=${currentSetId}`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "전체 패턴을 불러오지 못했습니다.");
-    return data;
-  };
-
-  const handleExcelCopy = async () => {
-    if (excelBusy) return;
-    setExcelBusy(true);
-    try {
-      const rows = await fetchAllExcelRows();
-      await writePickExcelClipboard(serializePickExcelTsv(rows));
-      alert("전체 패턴을 복사했습니다. 엑셀 셀을 한 번 선택한 뒤 붙여넣어주세요.");
-    } catch (error) {
-      alert(error.message || "클립보드 복사에 실패했습니다. 브라우저의 클립보드 권한을 확인해주세요.");
-    } finally {
-      setExcelBusy(false);
-    }
-  };
-
-  const openExcelPaste = async () => {
-    if (excelBusy) return;
-    setExcelBusy(true);
-    try {
-      const rows = await fetchAllExcelRows();
-      setExcelRows(rows);
-      setExcelText("");
-      setExcelResult(null);
-      setExcelOpen(true);
-    } catch (error) {
-      alert(error.message || "전체 패턴을 불러오지 못했습니다.");
-    } finally {
-      setExcelBusy(false);
-    }
-  };
-
-  const validateExcelPaste = () => {
-    const result = parsePickExcelTsv(excelText, excelRows);
-    setExcelResult(result);
-    return result;
-  };
-
-  const applyExcelPaste = async () => {
-    const result = excelResult || validateExcelPaste();
-    if (!result.rows || result.errors.length || excelBusy) return;
-    setExcelBusy(true);
-    try {
-      const response = await fetch(`/api/v1/picks2/excel?set_id=${currentSetId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: result.rows }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || "엑셀 데이터를 저장하지 못했습니다.");
-      setExcelOpen(false);
-      await fetchPatterns(false);
-      alert(`전체 ${data.updated}개 패턴을 저장했습니다.`);
-    } catch (error) {
-      alert(error.message || "엑셀 데이터를 저장하지 못했습니다.");
-    } finally {
-      setExcelBusy(false);
     }
   };
 
@@ -1048,56 +977,10 @@ export default function PickManagementPage() {
     </Box>
   );
 
-  const ExcelButtons = (
-    <>
-      <Box onClick={excelBusy ? undefined : handleExcelCopy} sx={{ border: "1px solid #2e7d32", borderRadius: 1, px: 1, py: 0.25, cursor: excelBusy ? "default" : "pointer", backgroundColor: "rgba(46,125,50,0.16)", opacity: excelBusy ? 0.5 : 1, whiteSpace: "nowrap", "&:hover": excelBusy ? {} : { backgroundColor: "rgba(46,125,50,0.3)" } }}>
-        <Typography sx={{ fontSize: isMobile && isLandscape ? 9 : 11 }}>엑셀로 복사</Typography>
-      </Box>
-      <Box onClick={excelBusy ? undefined : openExcelPaste} sx={{ border: "1px solid #1565c0", borderRadius: 1, px: 1, py: 0.25, cursor: excelBusy ? "default" : "pointer", backgroundColor: "rgba(21,101,192,0.16)", opacity: excelBusy ? 0.5 : 1, whiteSpace: "nowrap", "&:hover": excelBusy ? {} : { backgroundColor: "rgba(21,101,192,0.3)" } }}>
-        <Typography sx={{ fontSize: isMobile && isLandscape ? 9 : 11 }}>엑셀에서 붙여넣기</Typography>
-      </Box>
-    </>
-  );
-
-  const ExcelPasteDialog = (
-    <Dialog open={excelOpen} onClose={() => !excelBusy && setExcelOpen(false)} maxWidth="md" fullWidth>
-      <DialogTitle>전체 패턴 엑셀에서 붙여넣기</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-          ‘엑셀로 복사’로 만든 표를 엑셀에서 수정한 뒤 머리글부터 마지막 행까지 붙여넣어주세요.
-        </Typography>
-        <TextField autoFocus fullWidth multiline minRows={9} maxRows={14}
-          placeholder="엑셀 표의 머리글부터 전체 4,080개 행을 여기에 붙여넣기"
-          value={excelText}
-          onChange={(event) => { setExcelText(event.target.value); setExcelResult(null); }}
-          sx={{ "& .MuiInputBase-root": { fontFamily: "D2Coding, Consolas, Menlo, monospace", fontSize: 12 } }}
-        />
-        {excelResult && excelResult.errors.length === 0 && (
-          <Alert severity="success" sx={{ mt: 2 }}>전체 {excelResult.rowCount}개 패턴을 확인했습니다.</Alert>
-        )}
-        {excelResult?.errors?.length > 0 && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            <Typography variant="body2" sx={{ fontWeight: "bold", mb: 0.5 }}>{excelResult.errors.length}개 오류가 있어 저장할 수 없습니다.</Typography>
-            <Box component="ul" sx={{ m: 0, pl: 2.5, maxHeight: 220, overflowY: "auto" }}>
-              {excelResult.errors.slice(0, 100).map((error, index) => <li key={`${index}-${error}`}>{error}</li>)}
-            </Box>
-            {excelResult.errors.length > 100 && <Typography variant="caption">나머지 {excelResult.errors.length - 100}개 오류는 먼저 표시된 오류를 수정한 뒤 다시 검사해주세요.</Typography>}
-          </Alert>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setExcelOpen(false)} disabled={excelBusy}>취소</Button>
-        <Button onClick={validateExcelPaste} variant="outlined" disabled={!excelText.trim() || excelBusy}>검사</Button>
-        <Button onClick={applyExcelPaste} variant="contained" disabled={!excelResult?.rows || excelResult.errors.length > 0 || excelBusy}>{excelBusy ? "저장 중..." : "전체 저장"}</Button>
-      </DialogActions>
-    </Dialog>
-  );
-
   // 모바일 가로 레이아웃 (2컬럼)
   if (isMobile && isLandscape) {
     return (
       <Box sx={{ p: 1, height: "calc(100dvh - 48px)", display: "flex", gap: 1, overflow: "hidden" }}>
-        {ExcelPasteDialog}
         {/* 좌측: 격자 + 입력 - 고정 너비 */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flexShrink: 0, alignItems: "flex-start", width: 360, overflow: "hidden" }}>
           {/* 격자 */}
@@ -1361,7 +1244,6 @@ export default function PickManagementPage() {
               </Typography>
             </Box>
             <IconButton size="small" onClick={handleNextFormat}><ArrowForward sx={{ fontSize: 18 }} /></IconButton>
-            {ExcelButtons}
             <Box
               onClick={handleRecalculateStats}
               sx={{
@@ -1494,7 +1376,6 @@ export default function PickManagementPage() {
   if (isMobile && !isLandscape) {
     return (
       <Box sx={{ p: 1, height: "calc(100dvh - 48px)", display: "flex", flexDirection: "column", gap: 1, overflow: "hidden", alignItems: "flex-start" }}>
-        {ExcelPasteDialog}
         {/* 격자 */}
         {GridComponentSmall}
         {/* 입력 컨트롤 - 가로 배치 */}
@@ -1767,7 +1648,6 @@ export default function PickManagementPage() {
             </Typography>
           </Box>
           <IconButton size="small" onClick={handleNextFormat}><ArrowForward sx={{ fontSize: 20 }} /></IconButton>
-          {ExcelButtons}
           <Box
             onClick={handleRecalculateStats}
             sx={{
@@ -1846,7 +1726,6 @@ export default function PickManagementPage() {
   // 데스크탑 레이아웃
   return (
     <Box sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {ExcelPasteDialog}
       {/* 상단 영역 */}
       <Box sx={{ flexShrink: 0, width: CONTENT_WIDTH }}>
       {/* 격자 + 입력 컨트롤 */}
@@ -2467,7 +2346,6 @@ export default function PickManagementPage() {
         <IconButton size="small" onClick={handleNextFormat}>
           <ArrowForward />
         </IconButton>
-        {ExcelButtons}
         <Box
           onClick={handleRecalculateStats}
           sx={{
