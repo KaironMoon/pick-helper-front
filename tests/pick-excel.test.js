@@ -47,14 +47,22 @@ test("복사한 전체 표를 다시 검사해 가져온다", () => {
   assert.equal(result.rows[0].next_pick_6, "PBPBPB");
 });
 
-test("변경된 패턴과 중간이 빈 pick을 거부한다", () => {
+test("변경된 패턴을 번호 기준으로 가져온다", () => {
   const table = serializePickExcelTsv(rows).split(/\r?\n/).map((line) => line.split("\t"));
   table[1][1] = "B";
+  const result = parsePickExcelTsv(table.map((line) => line.join("\t")).join("\r\n"), rows);
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.rows[0].number, "X-1");
+  assert.equal(result.rows[0].prev_picks, "BBPB");
+});
+
+test("중간이 빈 pick을 거부한다", () => {
+  const table = serializePickExcelTsv(rows).split(/\r?\n/).map((line) => line.split("\t"));
   table[1][13] = "P";
   table[1][14] = "";
   table[1][15] = "B";
   const result = parsePickExcelTsv(table.map((line) => line.join("\t")).join("\r\n"), rows);
-  assert.ok(result.errors.some((error) => error.includes("패턴이 일치하지")));
   assert.ok(result.errors.some((error) => error.includes("중간 빈칸")));
 });
 

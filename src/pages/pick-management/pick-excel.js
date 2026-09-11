@@ -142,10 +142,9 @@ export function parsePickExcelTsv(text, expectedRows) {
       return;
     }
 
-    const patternCells = cells.slice(1, 12).map((value) => value.toUpperCase());
-    const expectedPatternCells = splitIntoCells(expected.prev_picks, 11);
-    if (patternCells.some((value, index) => value !== expectedPatternCells[index])) {
-      errors.push(`${excelRow}행: 번호 ${number}와 패턴이 일치하지 않습니다.`);
+    const importedPattern = parsePickCells(cells.slice(1, 12), "패턴", excelRow, errors);
+    if (importedPattern.length !== expected.prev_picks.length) {
+      errors.push(`${excelRow}행 / 패턴: 번호 ${number}는 ${expected.prev_picks.length}자리 패턴이어야 합니다.`);
     }
     const nextPick1 = parsePickCells(cells.slice(12, 13), "1pick", excelRow, errors);
     const nextPick3 = parsePickCells(cells.slice(13, 16), "3pick", excelRow, errors);
@@ -153,7 +152,7 @@ export function parsePickExcelTsv(text, expectedRows) {
     imported.set(number, {
       number,
       nickname: cells[0],
-      prev_picks: expected.prev_picks,
+      prev_picks: importedPattern,
       next_pick_1: nextPick1,
       next_pick_3: nextPick3,
       next_pick_6: nextPick6,
